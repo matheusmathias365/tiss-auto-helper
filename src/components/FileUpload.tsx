@@ -15,7 +15,7 @@ export const FileUpload = ({ onFileLoad }: FileUploadProps) => {
 
     if (!file.name.endsWith('.xml')) {
       toast({
-        title: "Formato inválido",
+        title: "Formato invalido",
         description: "Por favor, selecione um arquivo XML.",
         variant: "destructive",
       });
@@ -41,7 +41,7 @@ export const FileUpload = ({ onFileLoad }: FileUploadProps) => {
 
     if (!file.name.endsWith('.xml')) {
       toast({
-        title: "Formato inválido",
+        title: "Formato invalido",
         description: "Por favor, solte um arquivo XML.",
         variant: "destructive",
       });
@@ -85,7 +85,7 @@ export const FileUpload = ({ onFileLoad }: FileUploadProps) => {
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <FileText className="w-4 h-4" />
-          <span>Apenas arquivos .xml são aceitos</span>
+          <span>Apenas arquivos .xml sao aceitos</span>
         </div>
         <input
           id="file-input"

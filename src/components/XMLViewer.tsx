@@ -7,7 +7,7 @@ interface XMLViewerProps {
   title?: string;
 }
 
-export const XMLViewer = ({ content, title = "Conteúdo XML" }: XMLViewerProps) => {
+export const XMLViewer = ({ content, title = "Conteudo XML" }: XMLViewerProps) => {
   return (
     <Card>
       <CardHeader>

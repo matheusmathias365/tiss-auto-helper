@@ -31,14 +31,14 @@ export const ActivityLog = ({ logs }: ActivityLogProps) => {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Clock className="w-5 h-5 text-primary" />
-          Histórico de Ações
+          Historico de Acoes
         </CardTitle>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[200px] pr-4">
           {logs.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
-              Nenhuma ação realizada ainda
+              Nenhuma acao realizada ainda
             </p>
           ) : (
             <div className="space-y-3">

@@ -39,7 +39,7 @@ const Index = () => {
     setFileName(name);
     setHistory([content]);
     setLogs([]);
-    addLog("Arquivo carregado", "success", `${name} pronto para processamento`);
+    addLog("Arquivo carregado", "success", name + " pronto para processamento");
   };
 
   const saveToHistory = (content: string) => {
@@ -54,14 +54,14 @@ const Index = () => {
       "Estrutura corrigida",
       result.changes > 0 ? "success" : "warning",
       result.changes > 0
-        ? `${result.changes} correções realizadas`
-        : "Nenhuma correção necessária"
+        ? result.changes + " correcoes realizadas"
+        : "Nenhuma correcao necessaria"
     );
     
     if (result.changes > 0) {
       toast({
         title: "Estrutura corrigida",
-        description: `${result.changes} tags corrigidas com sucesso.`,
+        description: result.changes + " tags corrigidas com sucesso.",
       });
     }
   };
@@ -74,14 +74,14 @@ const Index = () => {
       "Tipo de atendimento padronizado",
       result.changes > 0 ? "success" : "warning",
       result.changes > 0
-        ? `${result.changes} campos alterados para valor 23`
-        : "Nenhuma alteração necessária"
+        ? result.changes + " campos alterados para valor 23"
+        : "Nenhuma alteracao necessaria"
     );
     
     if (result.changes > 0) {
       toast({
-        title: "Padronização concluída",
-        description: `${result.changes} campos tipoAtendimento atualizados.`,
+        title: "Padronizacao concluida",
+        description: result.changes + " campos tipoAtendimento atualizados.",
       });
     }
   };
@@ -94,14 +94,14 @@ const Index = () => {
       "CBOS padronizado",
       result.changes > 0 ? "success" : "warning",
       result.changes > 0
-        ? `${result.changes} campos alterados para código 225125`
-        : "Nenhuma alteração necessária"
+        ? result.changes + " campos alterados para codigo 225125"
+        : "Nenhuma alteracao necessaria"
     );
     
     if (result.changes > 0) {
       toast({
-        title: "Padronização concluída",
-        description: `${result.changes} campos CBOS atualizados.`,
+        title: "Padronizacao concluida",
+        description: result.changes + " campos CBOS atualizados.",
       });
     }
   };
@@ -111,10 +111,10 @@ const Index = () => {
       const previousContent = history[history.length - 2];
       setXmlContent(previousContent);
       setHistory((prev) => prev.slice(0, -1));
-      addLog("Ação desfeita", "info", "Conteúdo restaurado para versão anterior");
+      addLog("Acao desfeita", "info", "Conteudo restaurado para versao anterior");
       toast({
         title: "Desfeito",
-        description: "Última ação revertida com sucesso.",
+        description: "Ultima acao revertida com sucesso.",
       });
     }
   };
@@ -122,9 +122,9 @@ const Index = () => {
   const handleDownload = () => {
     if (xmlContent && fileName) {
       downloadXML(xmlContent, fileName);
-      addLog("Arquivo baixado", "success", `${fileName} salvo com as correções`);
+      addLog("Arquivo baixado", "success", fileName + " salvo com as correcoes");
       toast({
-        title: "Download concluído",
+        title: "Download concluido",
         description: "Arquivo corrigido baixado com sucesso.",
       });
     }
@@ -160,7 +160,7 @@ const Index = () => {
                 Bem-vindo ao seu Assistente TISS
               </h2>
               <p className="text-muted-foreground">
-                Carregue um arquivo XML para começar a validação e correção automática
+                Carregue um arquivo XML para comecar a validacao e correcao automatica
               </p>
             </div>
             <FileUpload onFileLoad={handleFileLoad} />
@@ -173,7 +173,7 @@ const Index = () => {
                 </div>
                 <h3 className="font-semibold mb-2">Agilidade</h3>
                 <p className="text-sm text-muted-foreground">
-                  Processe arquivos em segundos com correções automáticas
+                  Processe arquivos em segundos com correcoes automaticas
                 </p>
               </div>
               
@@ -183,7 +183,7 @@ const Index = () => {
                 </div>
                 <h3 className="font-semibold mb-2">Assertividade</h3>
                 <p className="text-sm text-muted-foreground">
-                  100% de conformidade com o padrão TISS da ANS
+                  100% de conformidade com o padrao TISS da ANS
                 </p>
               </div>
               
@@ -193,7 +193,7 @@ const Index = () => {
                 </div>
                 <h3 className="font-semibold mb-2">Autonomia</h3>
                 <p className="text-sm text-muted-foreground">
-                  Histórico completo e função desfazer para total controle
+                  Historico completo e funcao desfazer para total controle
                 </p>
               </div>
             </div>
@@ -264,10 +264,10 @@ const Index = () => {
       <footer className="border-t mt-16 py-8 bg-card">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>
-            Assistente TISS Inteligente - Ferramenta profissional para faturistas da área da saúde
+            Assistente TISS Inteligente - Ferramenta profissional para faturistas da area da saude
           </p>
           <p className="mt-2">
-            Todos os dados são processados localmente. Sua privacidade é garantida.
+            Todos os dados sao processados localmente. Sua privacidade e garantida.
           </p>
         </div>
       </footer>
