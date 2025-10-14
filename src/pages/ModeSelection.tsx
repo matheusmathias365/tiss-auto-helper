@@ -91,7 +91,7 @@ const ModeSelection = () => {
         </div>
 
         <footer className="text-center pt-12 pb-4 text-sm text-muted-foreground">
-          <p>© 2024 Assistente TISS Inteligente</p>
+          <p>© 2025 Assistente TISS Inteligente | Upstream Technology</p>
           <p className="mt-2">Todos os dados são processados localmente no seu navegador</p>
         </footer>
       </div>
