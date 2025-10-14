@@ -5,17 +5,19 @@ import { ActivityLog, LogEntry } from "@/components/ActivityLog";
 import { FileInfo } from "@/components/FileInfo";
 import { XMLViewer } from "@/components/XMLViewer";
 import { Button } from "@/components/ui/button";
-import { Download, Sparkles, Undo2 } from "lucide-react";
+import { Download, Sparkles, Undo2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+import JSZip from "jszip";
 import {
   fixXMLStructure,
   standardizeTipoAtendimento,
   standardizeCBOS,
-  downloadXML,
 } from "@/utils/xmlProcessor";
 
-const Index = () => {
+const ManualMode = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [xmlContent, setXmlContent] = useState<string>("");
   const [originalContent, setOriginalContent] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
@@ -119,15 +121,29 @@ const Index = () => {
     }
   };
 
-  const handleDownload = () => {
-    if (xmlContent && fileName) {
-      downloadXML(xmlContent, fileName);
-      addLog("Arquivo baixado", "success", fileName + " salvo com as correcoes");
-      toast({
-        title: "Download concluido",
-        description: "Arquivo corrigido baixado com sucesso.",
-      });
-    }
+  const handleDownload = async () => {
+    if (!xmlContent || !fileName) return;
+    
+    const zip = new JSZip();
+    const baseName = fileName.replace('.xml', '');
+    zip.file(`${baseName}.xml`, xmlContent);
+    
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(zipBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${baseName}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    addLog("Arquivo baixado", "success", `${baseName}.zip salvo com as correcoes`);
+    
+    toast({
+      title: "Download concluido",
+      description: `Arquivo ${baseName}.zip baixado com sucesso.`,
+    });
   };
 
   return (
@@ -135,18 +151,24 @@ const Index = () => {
       {/* Header */}
       <header className="border-b bg-card shadow-sm">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-primary rounded-lg">
-              <Sparkles className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-primary rounded-lg">
+                <Sparkles className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">
+                  Modo Manual
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Controlo total sobre as correções aplicadas
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                Assistente TISS Inteligente
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Otimizador de Lotes XML para Faturistas
-              </p>
-            </div>
+            <Button variant="outline" onClick={() => navigate('/')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar
+            </Button>
           </div>
         </div>
       </header>
@@ -157,10 +179,10 @@ const Index = () => {
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-foreground mb-3">
-                Bem-vindo ao seu Assistente TISS
+                Carregue seu arquivo XML
               </h2>
               <p className="text-muted-foreground">
-                Carregue um arquivo XML para comecar a validacao e correcao automatica
+                Visualize e aplique correções passo a passo
               </p>
             </div>
             <FileUpload onFileLoad={handleFileLoad} />
@@ -171,9 +193,9 @@ const Index = () => {
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Sparkles className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="font-semibold mb-2">Agilidade</h3>
+                <h3 className="font-semibold mb-2">Controle Total</h3>
                 <p className="text-sm text-muted-foreground">
-                  Processe arquivos em segundos com correcoes automaticas
+                  Escolha quais correções aplicar e em qual ordem
                 </p>
               </div>
               
@@ -181,9 +203,9 @@ const Index = () => {
                 <div className="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Download className="w-6 h-6 text-secondary" />
                 </div>
-                <h3 className="font-semibold mb-2">Assertividade</h3>
+                <h3 className="font-semibold mb-2">Visualização</h3>
                 <p className="text-sm text-muted-foreground">
-                  100% de conformidade com o padrao TISS da ANS
+                  Veja o conteúdo XML e acompanhe as mudanças
                 </p>
               </div>
               
@@ -191,9 +213,9 @@ const Index = () => {
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Undo2 className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="font-semibold mb-2">Autonomia</h3>
+                <h3 className="font-semibold mb-2">Reversível</h3>
                 <p className="text-sm text-muted-foreground">
-                  Historico completo e funcao desfazer para total controle
+                  Desfaça qualquer alteração com um clique
                 </p>
               </div>
             </div>
@@ -230,7 +252,7 @@ const Index = () => {
                   className="gap-2 bg-gradient-success"
                 >
                   <Download className="w-4 h-4" />
-                  Baixar Arquivo Corrigido
+                  Baixar .ZIP
                 </Button>
               </div>
             </div>
@@ -275,4 +297,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default ManualMode;
