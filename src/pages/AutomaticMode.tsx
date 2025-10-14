@@ -44,14 +44,26 @@ const AutomaticMode = () => {
     return { content: processedContent, totalChanges };
   };
 
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
+    const file = files[0];
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: "Arquivo muito grande",
+        description: `O arquivo deve ter no máximo ${MAX_FILE_SIZE / 1024 / 1024}MB.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setProcessing(true);
     setLogs([]);
-
-    const file = files[0];
     setOriginalFileName(file.name);
 
     try {
@@ -83,6 +95,30 @@ const AutomaticMode = () => {
     
     reader.onload = async (e) => {
       const content = e.target?.result as string;
+      
+      // Validate XML content
+      const trimmedContent = content.trim();
+      if (!trimmedContent.startsWith('<?xml') && !trimmedContent.startsWith('<')) {
+        toast({
+          title: "Conteúdo inválido",
+          description: "O arquivo não contém XML válido.",
+          variant: "destructive",
+        });
+        setProcessing(false);
+        return;
+      }
+
+      // Basic XXE protection check
+      if (content.includes('<!DOCTYPE') && content.includes('<!ENTITY')) {
+        toast({
+          title: "Arquivo não permitido",
+          description: "O arquivo contém definições de entidades que não são permitidas por questões de segurança.",
+          variant: "destructive",
+        });
+        setProcessing(false);
+        return;
+      }
+
       addLog("Upload", `Arquivo ${file.name} carregado`);
 
       const result = processXMLFile(content);
