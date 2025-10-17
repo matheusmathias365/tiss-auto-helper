@@ -133,13 +133,13 @@ const AutomaticMode = () => {
       const url = URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${baseName}_corrigido.zip`;
+      link.download = `${baseName}.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      addLog("Download", `${baseName}_corrigido.zip baixado`);
+      addLog("Download", `${baseName}.zip baixado`);
       
       toast({
         title: "Processamento concluído!",
@@ -178,14 +178,13 @@ const AutomaticMode = () => {
     const url = URL.createObjectURL(zipBlob);
     const link = document.createElement('a');
     link.href = url;
-    const baseName = file.name.replace('.zip', '');
-    link.download = `${baseName}_corrigido.zip`;
+    link.download = file.name; // Use original filename
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    addLog("Download", `${baseName}_corrigido.zip baixado com ${totalFiles} arquivos`);
+    addLog("Download", `${file.name} baixado com ${totalFiles} arquivos`);
 
     toast({
       title: "Processamento concluído!",

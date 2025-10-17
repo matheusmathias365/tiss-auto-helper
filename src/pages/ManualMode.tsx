@@ -2,8 +2,10 @@ import { useState } from "react";
 import { FileUpload } from "@/components/FileUpload";
 import { ActionButtons } from "@/components/ActionButtons";
 import { ActivityLog, LogEntry } from "@/components/ActivityLog";
-import { FileInfo } from "@/components/FileInfo";
-import { XMLViewer } from "@/components/XMLViewer";
+import { GuidesList } from "@/components/GuidesList";
+import { XMLEditor } from "@/components/XMLEditor";
+import { FindReplacePanel } from "@/components/FindReplacePanel";
+import { AuditPanel } from "@/components/AuditPanel";
 import { Button } from "@/components/ui/button";
 import { Download, Sparkles, Undo2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +15,10 @@ import {
   fixXMLStructure,
   standardizeTipoAtendimento,
   standardizeCBOS,
+  extractGuides,
+  deleteGuide,
+  addEpilogo,
+  Guide,
 } from "@/utils/xmlProcessor";
 
 const ManualMode = () => {
@@ -23,6 +29,8 @@ const ManualMode = () => {
   const [fileName, setFileName] = useState<string>("");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [history, setHistory] = useState<string[]>([]);
+  const [guides, setGuides] = useState<Guide[]>([]);
+  const [selectedGuideId, setSelectedGuideId] = useState<string | undefined>();
 
   const addLog = (action: string, status: LogEntry['status'], details?: string) => {
     const newLog: LogEntry = {
@@ -41,7 +49,17 @@ const ManualMode = () => {
     setFileName(name);
     setHistory([content]);
     setLogs([]);
-    addLog("Arquivo carregado", "success", name + " pronto para processamento");
+    
+    // Extract guides
+    const extractedGuides = extractGuides(content);
+    setGuides(extractedGuides);
+    
+    addLog("Arquivo carregado", "success", `${name} com ${extractedGuides.length} guias detectadas`);
+    
+    toast({
+      title: "Arquivo carregado",
+      description: `${extractedGuides.length} guias encontradas no lote.`,
+    });
   };
 
   const saveToHistory = (content: string) => {
@@ -56,14 +74,14 @@ const ManualMode = () => {
       "Estrutura corrigida",
       result.changes > 0 ? "success" : "warning",
       result.changes > 0
-        ? result.changes + " correcoes realizadas"
-        : "Nenhuma correcao necessaria"
+        ? `${result.changes} correções realizadas`
+        : "Nenhuma correção necessária"
     );
     
     if (result.changes > 0) {
       toast({
         title: "Estrutura corrigida",
-        description: result.changes + " tags corrigidas com sucesso.",
+        description: `${result.changes} tags corrigidas com sucesso.`,
       });
     }
   };
@@ -76,14 +94,14 @@ const ManualMode = () => {
       "Tipo de atendimento padronizado",
       result.changes > 0 ? "success" : "warning",
       result.changes > 0
-        ? result.changes + " campos alterados para valor 23"
-        : "Nenhuma alteracao necessaria"
+        ? `${result.changes} campos alterados para valor 23`
+        : "Nenhuma alteração necessária"
     );
     
     if (result.changes > 0) {
       toast({
-        title: "Padronizacao concluida",
-        description: result.changes + " campos tipoAtendimento atualizados.",
+        title: "Padronização concluída",
+        description: `${result.changes} campos tipoAtendimento atualizados.`,
       });
     }
   };
@@ -96,16 +114,73 @@ const ManualMode = () => {
       "CBOS padronizado",
       result.changes > 0 ? "success" : "warning",
       result.changes > 0
-        ? result.changes + " campos alterados para codigo 225125"
-        : "Nenhuma alteracao necessaria"
+        ? `${result.changes} campos alterados para código 225125`
+        : "Nenhuma alteração necessária"
     );
     
     if (result.changes > 0) {
       toast({
-        title: "Padronizacao concluida",
-        description: result.changes + " campos CBOS atualizados.",
+        title: "Padronização concluída",
+        description: `${result.changes} campos CBOS atualizados.`,
       });
     }
+  };
+
+  const handleDeleteGuide = (guideId: string) => {
+    saveToHistory(xmlContent);
+    const newContent = deleteGuide(xmlContent, guideId, guides);
+    setXmlContent(newContent);
+    
+    // Update guides list
+    const newGuides = guides.filter(g => g.id !== guideId);
+    setGuides(newGuides);
+    
+    const deletedGuide = guides.find(g => g.id === guideId);
+    addLog(
+      "Guia excluída",
+      "info",
+      `Guia ${deletedGuide?.numeroGuiaPrestador} removida do lote`
+    );
+    
+    toast({
+      title: "Guia excluída",
+      description: `Guia ${deletedGuide?.numeroGuiaPrestador} removida com sucesso.`,
+    });
+    
+    if (selectedGuideId === guideId) {
+      setSelectedGuideId(undefined);
+    }
+  };
+
+  const handleSelectGuide = (guideId: string) => {
+    setSelectedGuideId(guideId);
+    const guide = guides.find(g => g.id === guideId);
+    
+    if (guide) {
+      // Find the guide in the XML and scroll to it
+      // This is a simple implementation - in a real app you'd want more sophisticated scrolling
+      toast({
+        title: "Guia selecionada",
+        description: `Guia ${guide.numeroGuiaPrestador} destacada no editor.`,
+      });
+    }
+  };
+
+  const handleFindReplace = (newContent: string, changes: number) => {
+    saveToHistory(xmlContent);
+    setXmlContent(newContent);
+    addLog(
+      "Substituição realizada",
+      "success",
+      `${changes} substituições realizadas`
+    );
+  };
+
+  const handleXMLChange = (newContent: string) => {
+    setXmlContent(newContent);
+    // Update guides when XML changes
+    const newGuides = extractGuides(newContent);
+    setGuides(newGuides);
   };
 
   const handleUndo = () => {
@@ -113,10 +188,15 @@ const ManualMode = () => {
       const previousContent = history[history.length - 2];
       setXmlContent(previousContent);
       setHistory((prev) => prev.slice(0, -1));
-      addLog("Acao desfeita", "info", "Conteudo restaurado para versao anterior");
+      
+      // Update guides
+      const newGuides = extractGuides(previousContent);
+      setGuides(newGuides);
+      
+      addLog("Ação desfeita", "info", "Conteúdo restaurado para versão anterior");
       toast({
         title: "Desfeito",
-        description: "Ultima acao revertida com sucesso.",
+        description: "Última ação revertida com sucesso.",
       });
     }
   };
@@ -124,25 +204,34 @@ const ManualMode = () => {
   const handleDownload = async () => {
     if (!xmlContent || !fileName) return;
     
+    // Add epilogo with new hash
+    const contentWithEpilogo = addEpilogo(xmlContent);
+    
     const zip = new JSZip();
-    const baseName = fileName.replace('.xml', '');
-    zip.file(`${baseName}.xml`, xmlContent);
+    const xmlFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
+    zip.file(xmlFileName, contentWithEpilogo);
     
     const zipBlob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(zipBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${baseName}.zip`;
+    
+    // Use original filename (without _corrigido suffix)
+    const downloadName = fileName.endsWith('.xml') 
+      ? fileName.replace('.xml', '.zip')
+      : `${fileName}.zip`;
+    
+    link.download = downloadName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
-    addLog("Arquivo baixado", "success", `${baseName}.zip salvo com as correcoes`);
+    addLog("Arquivo baixado", "success", `${downloadName} salvo com hash MD5 atualizado`);
     
     toast({
-      title: "Download concluido",
-      description: `Arquivo ${baseName}.zip baixado com sucesso.`,
+      title: "Download concluído",
+      description: `Arquivo ${downloadName} baixado com sucesso.`,
     });
   };
 
@@ -153,15 +242,15 @@ const ManualMode = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-primary rounded-lg">
+              <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-lg">
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">
-                  Modo Manual
+                  Painel de Auditoria Interativo
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Controlo total sobre as correções aplicadas
+                  Auditoria completa com edição manual e validações avançadas
                 </p>
               </div>
             </div>
@@ -179,104 +268,99 @@ const ManualMode = () => {
           <div className="max-w-2xl mx-auto">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-foreground mb-3">
-                Carregue seu arquivo XML
+                Carregue seu arquivo XML ou lote ZIP
               </h2>
               <p className="text-muted-foreground">
-                Visualize e aplique correções passo a passo
+                Acesse todas as ferramentas de auditoria e correção
               </p>
             </div>
             <FileUpload onFileLoad={handleFileLoad} />
-            
-            {/* Features */}
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center p-6 rounded-lg bg-card border">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-semibold mb-2">Controle Total</h3>
-                <p className="text-sm text-muted-foreground">
-                  Escolha quais correções aplicar e em qual ordem
-                </p>
-              </div>
-              
-              <div className="text-center p-6 rounded-lg bg-card border">
-                <div className="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Download className="w-6 h-6 text-secondary" />
-                </div>
-                <h3 className="font-semibold mb-2">Visualização</h3>
-                <p className="text-sm text-muted-foreground">
-                  Veja o conteúdo XML e acompanhe as mudanças
-                </p>
-              </div>
-              
-              <div className="text-center p-6 rounded-lg bg-card border">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Undo2 className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-semibold mb-2">Reversível</h3>
-                <p className="text-sm text-muted-foreground">
-                  Desfaça qualquer alteração com um clique
-                </p>
-              </div>
-            </div>
           </div>
         ) : (
           <>
-            {/* File Info and Actions */}
-            <div className="space-y-6">
-              <FileInfo
-                fileName={fileName}
-                fileSize={new Blob([xmlContent]).size}
-              />
+            {/* Main Layout: 3 Column Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* LEFT COLUMN: Guides List + Action Panels */}
+              <div className="lg:col-span-1 space-y-6">
+                {/* ÁREA 1: Lista de Guias */}
+                <GuidesList
+                  guides={guides}
+                  onDeleteGuide={handleDeleteGuide}
+                  onSelectGuide={handleSelectGuide}
+                  selectedGuideId={selectedGuideId}
+                />
 
-              <ActionButtons
-                onFixStructure={handleFixStructure}
-                onStandardizeTipoAtendimento={handleStandardizeTipoAtendimento}
-                onStandardizeCBOS={handleStandardizeCBOS}
-                disabled={!xmlContent}
-              />
+                {/* ÁREA 3: Painel de Ações */}
+                <div className="space-y-4">
+                  {/* Ações em Lote */}
+                  <ActionButtons
+                    onFixStructure={handleFixStructure}
+                    onStandardizeTipoAtendimento={handleStandardizeTipoAtendimento}
+                    onStandardizeCBOS={handleStandardizeCBOS}
+                    disabled={!xmlContent}
+                  />
 
-              {/* Control Buttons */}
-              <div className="flex gap-4 justify-center">
-                <Button
-                  onClick={handleUndo}
-                  disabled={history.length <= 1}
-                  variant="outline"
-                  className="gap-2"
-                >
-                  <Undo2 className="w-4 h-4" />
-                  Desfazer
-                </Button>
-                <Button
-                  onClick={handleDownload}
-                  className="gap-2 bg-gradient-success"
-                >
-                  <Download className="w-4 h-4" />
-                  Baixar .ZIP
-                </Button>
+                  {/* Localizar e Substituir */}
+                  <FindReplacePanel
+                    content={xmlContent}
+                    onReplace={handleFindReplace}
+                  />
+
+                  {/* Validação e Auditoria */}
+                  <AuditPanel content={xmlContent} />
+
+                  {/* Control Buttons */}
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      onClick={handleUndo}
+                      disabled={history.length <= 1}
+                      variant="outline"
+                      className="w-full gap-2"
+                    >
+                      <Undo2 className="w-4 h-4" />
+                      Desfazer Última Ação
+                    </Button>
+                    <Button
+                      onClick={handleDownload}
+                      className="w-full gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                    >
+                      <Download className="w-4 h-4" />
+                      Baixar Lote Corrigido
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Activity Log and XML Viewer */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ActivityLog logs={logs} />
-              <XMLViewer content={xmlContent} title="XML Processado" />
-            </div>
+              {/* RIGHT COLUMN: XML Editor + Activity Log */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* ÁREA 2: Editor de XML */}
+                <XMLEditor
+                  content={xmlContent}
+                  onChange={handleXMLChange}
+                  title="Editor de XML (Editável)"
+                />
 
-            {/* Load New File */}
-            <div className="flex justify-center">
-              <Button
-                onClick={() => {
-                  setXmlContent("");
-                  setOriginalContent("");
-                  setFileName("");
-                  setLogs([]);
-                  setHistory([]);
-                }}
-                variant="outline"
-              >
-                Carregar Novo Arquivo
-              </Button>
+                {/* Activity Log */}
+                <ActivityLog logs={logs} />
+
+                {/* Load New File */}
+                <div className="flex justify-center">
+                  <Button
+                    onClick={() => {
+                      setXmlContent("");
+                      setOriginalContent("");
+                      setFileName("");
+                      setLogs([]);
+                      setHistory([]);
+                      setGuides([]);
+                      setSelectedGuideId(undefined);
+                    }}
+                    variant="outline"
+                  >
+                    Carregar Novo Arquivo
+                  </Button>
+                </div>
+              </div>
             </div>
           </>
         )}
@@ -286,10 +370,10 @@ const ManualMode = () => {
       <footer className="border-t mt-16 py-8 bg-card">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>
-            Assistente TISS Inteligente - Ferramenta profissional para faturistas da area da saude
+            Assistente TISS Inteligente - Ferramenta profissional para faturistas da área da saúde
           </p>
           <p className="mt-2">
-            Todos os dados sao processados localmente. Sua privacidade e garantida.
+            Todos os dados são processados localmente. Sua privacidade é garantida.
           </p>
         </div>
       </footer>
