@@ -176,6 +176,18 @@ const ManualMode = () => {
     );
   };
 
+  const handleFixHash = () => {
+    saveToHistory(xmlContent);
+    const newContent = addEpilogo(xmlContent);
+    setXmlContent(newContent);
+    addLog("Hash corrigido", "success", "Hash MD5 recalculado e atualizado");
+    
+    toast({
+      title: "Hash corrigido",
+      description: "Hash MD5 recalculado e epílogo atualizado com sucesso.",
+    });
+  };
+
   const handleXMLChange = (newContent: string) => {
     setXmlContent(newContent);
     // Update guides when XML changes
@@ -278,73 +290,12 @@ const ManualMode = () => {
           </div>
         ) : (
           <>
-            {/* Main Layout: 3 Column Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* LEFT COLUMN: Guides List + Action Panels */}
-              <div className="lg:col-span-1 space-y-6">
-                {/* ÁREA 1: Lista de Guias */}
-                <GuidesList
-                  guides={guides}
-                  onDeleteGuide={handleDeleteGuide}
-                  onSelectGuide={handleSelectGuide}
-                  selectedGuideId={selectedGuideId}
-                />
-
-                {/* ÁREA 3: Painel de Ações */}
+            {/* Main Layout: 2 Column Grid - Control Panel (Left) + Workspace (Right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* LEFT COLUMN: Control Panel and Actions */}
+              <div className="lg:col-span-4 space-y-6">
+                {/* Card 1: File Upload */}
                 <div className="space-y-4">
-                  {/* Ações em Lote */}
-                  <ActionButtons
-                    onFixStructure={handleFixStructure}
-                    onStandardizeTipoAtendimento={handleStandardizeTipoAtendimento}
-                    onStandardizeCBOS={handleStandardizeCBOS}
-                    disabled={!xmlContent}
-                  />
-
-                  {/* Localizar e Substituir */}
-                  <FindReplacePanel
-                    content={xmlContent}
-                    onReplace={handleFindReplace}
-                  />
-
-                  {/* Validação e Auditoria */}
-                  <AuditPanel content={xmlContent} />
-
-                  {/* Control Buttons */}
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      onClick={handleUndo}
-                      disabled={history.length <= 1}
-                      variant="outline"
-                      className="w-full gap-2"
-                    >
-                      <Undo2 className="w-4 h-4" />
-                      Desfazer Última Ação
-                    </Button>
-                    <Button
-                      onClick={handleDownload}
-                      className="w-full gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
-                    >
-                      <Download className="w-4 h-4" />
-                      Baixar Lote Corrigido
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* RIGHT COLUMN: XML Editor + Activity Log */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* ÁREA 2: Editor de XML */}
-                <XMLEditor
-                  content={xmlContent}
-                  onChange={handleXMLChange}
-                  title="Editor de XML (Editável)"
-                />
-
-                {/* Activity Log */}
-                <ActivityLog logs={logs} />
-
-                {/* Load New File */}
-                <div className="flex justify-center">
                   <Button
                     onClick={() => {
                       setXmlContent("");
@@ -356,10 +307,72 @@ const ManualMode = () => {
                       setSelectedGuideId(undefined);
                     }}
                     variant="outline"
+                    className="w-full"
                   >
                     Carregar Novo Arquivo
                   </Button>
                 </div>
+
+                {/* Card 2: Batch Actions */}
+                <ActionButtons
+                  onFixStructure={handleFixStructure}
+                  onStandardizeTipoAtendimento={handleStandardizeTipoAtendimento}
+                  onStandardizeCBOS={handleStandardizeCBOS}
+                  disabled={!xmlContent}
+                />
+
+                {/* Card 3: Find and Replace */}
+                <FindReplacePanel
+                  content={xmlContent}
+                  onReplace={handleFindReplace}
+                />
+
+                {/* Card 4: Active Audit Panel */}
+                <AuditPanel 
+                  content={xmlContent}
+                  onFixHash={handleFixHash}
+                />
+
+                {/* Card 5: Control Buttons */}
+                <div className="flex flex-col gap-2">
+                  <Button
+                    onClick={handleUndo}
+                    disabled={history.length <= 1}
+                    variant="outline"
+                    className="w-full gap-2"
+                  >
+                    <Undo2 className="w-4 h-4" />
+                    Desfazer Última Ação
+                  </Button>
+                  <Button
+                    onClick={handleDownload}
+                    className="w-full gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
+                  >
+                    <Download className="w-4 h-4" />
+                    Baixar Lote Corrigido
+                  </Button>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: Workspace and Visualization */}
+              <div className="lg:col-span-8 space-y-6">
+                {/* Card 1: Guides List */}
+                <GuidesList
+                  guides={guides}
+                  onDeleteGuide={handleDeleteGuide}
+                  onSelectGuide={handleSelectGuide}
+                  selectedGuideId={selectedGuideId}
+                />
+
+                {/* Card 2: Interactive XML Editor */}
+                <XMLEditor
+                  content={xmlContent}
+                  onChange={handleXMLChange}
+                  title="Editor de XML (Editável)"
+                />
+
+                {/* Activity Log */}
+                <ActivityLog logs={logs} />
               </div>
             </div>
           </>

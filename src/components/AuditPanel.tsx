@@ -7,11 +7,13 @@ import { validateHash, findEmptyFields, validateProfessionalData } from "@/utils
 
 interface AuditPanelProps {
   content: string;
+  onFixHash: () => void;
 }
 
-export const AuditPanel = ({ content }: AuditPanelProps) => {
+export const AuditPanel = ({ content, onFixHash }: AuditPanelProps) => {
   const [auditResults, setAuditResults] = useState<string[]>([]);
   const [isAuditing, setIsAuditing] = useState(false);
+  const [hashInvalid, setHashInvalid] = useState(false);
 
   const handleAudit = () => {
     setIsAuditing(true);
@@ -20,6 +22,7 @@ export const AuditPanel = ({ content }: AuditPanelProps) => {
     // 1. Validar Hash MD5
     const hashResult = validateHash(content);
     results.push(hashResult);
+    setHashInvalid(hashResult.includes("❌"));
 
     // 2. Validar Campos Vazios
     const emptyFieldsResult = findEmptyFields(content);
@@ -64,8 +67,21 @@ export const AuditPanel = ({ content }: AuditPanelProps) => {
         </Button>
 
         {auditResults.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="font-semibold text-sm">Resultados da Auditoria:</h4>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-sm">Resultados da Auditoria:</h4>
+              {hashInvalid && (
+                <Button
+                  onClick={onFixHash}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Corrigir Hash
+                </Button>
+              )}
+            </div>
             <ScrollArea className="h-[300px] w-full rounded-md border p-3">
               <div className="space-y-3">
                 {auditResults.map((result, index) => (
