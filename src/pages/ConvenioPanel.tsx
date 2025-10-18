@@ -41,8 +41,10 @@ const ConvenioPanel = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [history, setHistory] = useState<string[]>([]);
   const [guides, setGuides] = useState<Guide[]>([]);
+  const [originalValue, setOriginalValue] = useState<number>(0);
   const [selectedGuideId, setSelectedGuideId] = useState<string | undefined>();
   const [assistentOpen, setAssistentOpen] = useState(false);
+  const [assistentTag, setAssistentTag] = useState<string>("");
 
   useEffect(() => {
     if (!profile) {
@@ -127,6 +129,10 @@ const ConvenioPanel = () => {
     
     const extractedGuides = extractGuides(content);
     setGuides(extractedGuides);
+    
+    // Calculate and fix original value (immutable)
+    const totalOriginal = extractedGuides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
+    setOriginalValue(totalOriginal);
     
     addLog("Arquivo carregado", "success", `${name} com ${extractedGuides.length} guias detectadas`);
     
@@ -302,8 +308,12 @@ const ConvenioPanel = () => {
     }
   };
 
-  const originalValue = guides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
   const currentValue = extractGuides(xmlContent).reduce((sum, g) => sum + g.valorTotalGeral, 0);
+  
+  const handleTagQuery = (tag: string) => {
+    setAssistentTag(tag);
+    setAssistentOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -318,7 +328,11 @@ const ConvenioPanel = () => {
         <HelpCircle className="w-6 h-6" />
       </Button>
 
-      <AssistenteTISS isOpen={assistentOpen} onClose={() => setAssistentOpen(false)} />
+      <AssistenteTISS 
+        isOpen={assistentOpen} 
+        onClose={() => setAssistentOpen(false)}
+        initialTag={assistentTag}
+      />
 
       <main className="container mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center justify-between">
@@ -436,6 +450,7 @@ const ConvenioPanel = () => {
                   <XMLEditor
                     content={xmlContent}
                     onChange={handleXMLChange}
+                    onTagQuery={handleTagQuery}
                     title="Editor de XML (Editável)"
                   />
 
