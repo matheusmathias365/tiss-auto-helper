@@ -12,7 +12,7 @@ export interface Guide {
   numeroGuiaPrestador: string;
   numeroCarteira: string;
   nomeProfissional: string;
-  valorTotalGeral: string;
+  valorTotalGeral: number;
   xmlNode: any;
 }
 
@@ -193,7 +193,7 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       numeroGuiaPrestador: numeroGuia,
       numeroCarteira: numeroCarteira,
       nomeProfissional: nomeProfissional,
-      valorTotalGeral: valorTotal,
+      valorTotalGeral: parseFloat(valorTotal) || 0,
       xmlNode: match[0],
     });
     
