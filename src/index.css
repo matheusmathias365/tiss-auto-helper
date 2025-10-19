@@ -123,3 +123,34 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom styles for react-simple-code-editor */
+.token.tag,
+.token.punctuation,
+.token.attr-name,
+.token.attr-value {
+  /* Default Prism.js colors are fine, but you can customize */
+}
+
+.editor-line-number {
+  display: inline-block;
+  width: 2.5em; /* Adjust as needed */
+  text-align: right;
+  margin-right: 1em;
+  color: #999; /* Line number color */
+  user-select: none;
+  opacity: 0.7;
+}
+
+/* Override default textarea styles for the editor */
+#xml-editor-textarea {
+  min-height: 400px; /* Ensure it has a minimum height */
+  max-height: 1300px; /* Max height as defined in XMLEditorProps */
+  overflow: auto !important; /* Enable scrolling */
+  padding-left: 3.5em !important; /* Make space for line numbers */
+}
+
+/* Adjust for dark mode if necessary */
+.dark .editor-line-number {
+  color: #666;
+}

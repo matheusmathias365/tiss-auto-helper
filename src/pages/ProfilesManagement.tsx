@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
@@ -13,64 +13,67 @@ import { ArrowLeft, Plus, Trash2, Download, Upload, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { loadConfig, saveProfile, deleteProfile, saveRule, deleteRule, exportConfig, importConfig } from "@/utils/localStorage";
 import { TissTagAutocomplete } from "@/components/TissTagAutocomplete";
-import { Profile, CorrectionRule } from "@/types/profiles";
+import { Profile, CorrectionRule, ProfileSchema, CorrectionRuleSchema } from "@/types/profiles";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 const ProfilesManagement = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [config, setConfig] = useState(loadConfig());
 
-  // Profile form state
-  const [profileForm, setProfileForm] = useState<Partial<Profile>>({
-    name: '',
-    outputFormat: 'zip',
-    associatedRules: []
-  });
-
-  // Rule form state
-  const [ruleForm, setRuleForm] = useState<Partial<CorrectionRule>>({
-    name: '',
-    description: '',
-    condition: {
-      field: '',
-      operator: 'equals',
-      value: ''
-    },
-    action: {
-      field: '',
-      newValue: ''
-    },
-    enabled: true
-  });
-
-  const handleSaveProfile = () => {
-    if (!profileForm.name || !profileForm.outputFormat) {
-      toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios",
-        variant: "destructive"
-      });
-      return;
+  // Profile form setup
+  const profileForm = useForm<Profile>({
+    resolver: zodResolver(ProfileSchema),
+    defaultValues: {
+      name: '',
+      outputFormat: 'zip',
+      associatedRules: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }
+  });
 
-    const profile: Profile = {
-      id: profileForm.id || Date.now().toString(),
-      name: profileForm.name,
-      outputFormat: profileForm.outputFormat as 'zip' | 'xml',
-      associatedRules: profileForm.associatedRules || [],
-      createdAt: profileForm.createdAt || new Date(),
-      updatedAt: new Date()
+  // Rule form setup
+  const ruleForm = useForm<CorrectionRule>({
+    resolver: zodResolver(CorrectionRuleSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      condition: {
+        field: '',
+        operator: 'equals',
+        value: ''
+      },
+      action: {
+        field: '',
+        newValue: ''
+      },
+      enabled: true,
+      createdAt: new Date(),
+    }
+  });
+
+  const handleSaveProfile = profileForm.handleSubmit((data) => {
+    const profileToSave: Profile = {
+      ...data,
+      id: data.id || Date.now().toString(),
+      updatedAt: new Date(),
     };
-
-    saveProfile(profile);
+    saveProfile(profileToSave);
     setConfig(loadConfig());
-    setProfileForm({ name: '', outputFormat: 'zip', associatedRules: [] });
-    
+    profileForm.reset({
+      name: '',
+      outputFormat: 'zip',
+      associatedRules: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     toast({
       title: "Perfil salvo",
-      description: `Perfil "${profile.name}" salvo com sucesso`
+      description: `Perfil "${profileToSave.name}" salvo com sucesso`
     });
-  };
+  });
 
   const handleDeleteProfile = (id: string) => {
     if (confirm('Deseja realmente excluir este perfil?')) {
@@ -83,41 +86,26 @@ const ProfilesManagement = () => {
     }
   };
 
-  const handleSaveRule = () => {
-    if (!ruleForm.name || !ruleForm.condition?.field || !ruleForm.action?.field) {
-      toast({
-        title: "Erro",
-        description: "Preencha todos os campos obrigatórios",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const rule: CorrectionRule = {
-      id: ruleForm.id || Date.now().toString(),
-      name: ruleForm.name,
-      description: ruleForm.description || '',
-      condition: ruleForm.condition as CorrectionRule['condition'],
-      action: ruleForm.action as CorrectionRule['action'],
-      enabled: ruleForm.enabled !== undefined ? ruleForm.enabled : true,
-      createdAt: ruleForm.createdAt || new Date()
+  const handleSaveRule = ruleForm.handleSubmit((data) => {
+    const ruleToSave: CorrectionRule = {
+      ...data,
+      id: data.id || Date.now().toString(),
     };
-
-    saveRule(rule);
+    saveRule(ruleToSave);
     setConfig(loadConfig());
-    setRuleForm({
+    ruleForm.reset({
       name: '',
       description: '',
       condition: { field: '', operator: 'equals', value: '' },
       action: { field: '', newValue: '' },
-      enabled: true
+      enabled: true,
+      createdAt: new Date(),
     });
-
     toast({
       title: "Regra salva",
-      description: `Regra "${rule.name}" salva com sucesso`
+      description: `Regra "${ruleToSave.name}" salva com sucesso`
     });
-  };
+  });
 
   const handleDeleteRule = (id: string) => {
     if (confirm('Deseja realmente excluir esta regra?')) {
@@ -222,7 +210,7 @@ const ProfilesManagement = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Plus className="w-5 h-5" />
-                    {profileForm.id ? 'Editar Perfil' : 'Criar Novo Perfil'}
+                    {profileForm.watch('id') ? 'Editar Perfil' : 'Criar Novo Perfil'}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -232,15 +220,19 @@ const ProfilesManagement = () => {
                       <Input
                         id="profileName"
                         placeholder="Ex: Bradesco, Unimed..."
-                        value={profileForm.name || ''}
-                        onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                        {...profileForm.register('name')}
                       />
+                      {profileForm.formState.errors.name && (
+                        <p className="text-destructive text-sm">
+                          {profileForm.formState.errors.name.message}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="outputFormat">Formato de Saída *</Label>
                       <Select
-                        value={profileForm.outputFormat || 'zip'}
-                        onValueChange={(value) => setProfileForm({ ...profileForm, outputFormat: value as 'zip' | 'xml' })}
+                        value={profileForm.watch('outputFormat')}
+                        onValueChange={(value) => profileForm.setValue('outputFormat', value as 'zip' | 'xml', { shouldValidate: true })}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -250,6 +242,11 @@ const ProfilesManagement = () => {
                           <SelectItem value="xml">XML (direto)</SelectItem>
                         </SelectContent>
                       </Select>
+                      {profileForm.formState.errors.outputFormat && (
+                        <p className="text-destructive text-sm">
+                          {profileForm.formState.errors.outputFormat.message}
+                        </p>
+                      )}
                     </div>
                   </div>
                   
@@ -264,15 +261,16 @@ const ProfilesManagement = () => {
                         config.rules.map(rule => (
                           <div key={rule.id} className="flex items-center gap-2">
                             <Switch
-                              checked={(profileForm.associatedRules || []).includes(rule.id)}
+                              checked={(profileForm.watch('associatedRules') || []).includes(rule.id)}
                               onCheckedChange={(checked) => {
-                                const current = profileForm.associatedRules || [];
-                                setProfileForm({
-                                  ...profileForm,
-                                  associatedRules: checked
+                                const current = profileForm.getValues('associatedRules') || [];
+                                profileForm.setValue(
+                                  'associatedRules',
+                                  checked
                                     ? [...current, rule.id]
-                                    : current.filter(id => id !== rule.id)
-                                });
+                                    : current.filter(id => id !== rule.id),
+                                  { shouldValidate: true }
+                                );
                               }}
                             />
                             <Label className="cursor-pointer">{rule.name}</Label>
@@ -312,7 +310,7 @@ const ProfilesManagement = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setProfileForm(profile)}
+                              onClick={() => profileForm.reset(profile)}
                             >
                               Editar
                             </Button>
@@ -337,7 +335,7 @@ const ProfilesManagement = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Plus className="w-5 h-5" />
-                    {ruleForm.id ? 'Editar Regra' : 'Criar Nova Regra'}
+                    {ruleForm.watch('id') ? 'Editar Regra' : 'Criar Nova Regra'}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -346,9 +344,13 @@ const ProfilesManagement = () => {
                     <Input
                       id="ruleName"
                       placeholder="Ex: Corrigir nome ECOCARDIOGRAMA"
-                      value={ruleForm.name || ''}
-                      onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })}
+                      {...ruleForm.register('name')}
                     />
+                    {ruleForm.formState.errors.name && (
+                      <p className="text-destructive text-sm">
+                        {ruleForm.formState.errors.name.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -356,8 +358,7 @@ const ProfilesManagement = () => {
                     <Textarea
                       id="ruleDescription"
                       placeholder="Descrição opcional da regra"
-                      value={ruleForm.description || ''}
-                      onChange={(e) => setRuleForm({ ...ruleForm, description: e.target.value })}
+                      {...ruleForm.register('description')}
                     />
                   </div>
 
@@ -368,20 +369,22 @@ const ProfilesManagement = () => {
                         id="conditionField"
                         label="Campo *"
                         placeholder="Ex: ans:nomeProfissional"
-                        value={ruleForm.condition?.field || ''}
-                        onChange={(value) => setRuleForm({
-                          ...ruleForm,
-                          condition: { ...ruleForm.condition!, field: value }
-                        })}
+                        value={ruleForm.watch('condition.field')}
+                        onChange={(value) => {
+                          ruleForm.setValue('condition.field', value, { shouldValidate: true });
+                          ruleForm.trigger('condition.field');
+                        }}
                       />
+                      {ruleForm.formState.errors.condition?.field && (
+                        <p className="text-destructive text-sm col-span-3">
+                          {ruleForm.formState.errors.condition.field.message}
+                        </p>
+                      )}
                       <div className="space-y-2">
                         <Label>Operador</Label>
                         <Select
-                          value={ruleForm.condition?.operator || 'equals'}
-                          onValueChange={(value) => setRuleForm({
-                            ...ruleForm,
-                            condition: { ...ruleForm.condition!, operator: value as any }
-                          })}
+                          value={ruleForm.watch('condition.operator')}
+                          onValueChange={(value) => ruleForm.setValue('condition.operator', value as any, { shouldValidate: true })}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -399,11 +402,7 @@ const ProfilesManagement = () => {
                         <Label>Valor</Label>
                         <Input
                           placeholder="Ex: ECOCARDIOGRAMA"
-                          value={ruleForm.condition?.value || ''}
-                          onChange={(e) => setRuleForm({
-                            ...ruleForm,
-                            condition: { ...ruleForm.condition!, value: e.target.value }
-                          })}
+                          {...ruleForm.register('condition.value')}
                         />
                       </div>
                     </div>
@@ -416,30 +415,36 @@ const ProfilesManagement = () => {
                         id="actionField"
                         label="Campo *"
                         placeholder="Ex: ans:nomeProfissional"
-                        value={ruleForm.action?.field || ''}
-                        onChange={(value) => setRuleForm({
-                          ...ruleForm,
-                          action: { ...ruleForm.action!, field: value }
-                        })}
+                        value={ruleForm.watch('action.field')}
+                        onChange={(value) => {
+                          ruleForm.setValue('action.field', value, { shouldValidate: true });
+                          ruleForm.trigger('action.field');
+                        }}
                       />
+                      {ruleForm.formState.errors.action?.field && (
+                        <p className="text-destructive text-sm col-span-2">
+                          {ruleForm.formState.errors.action.field.message}
+                        </p>
+                      )}
                       <div className="space-y-2">
                         <Label>Novo Valor *</Label>
                         <Input
                           placeholder="Ex: Dr. Responsável"
-                          value={ruleForm.action?.newValue || ''}
-                          onChange={(e) => setRuleForm({
-                            ...ruleForm,
-                            action: { ...ruleForm.action!, newValue: e.target.value }
-                          })}
+                          {...ruleForm.register('action.newValue')}
                         />
+                        {ruleForm.formState.errors.action?.newValue && (
+                          <p className="text-destructive text-sm">
+                            {ruleForm.formState.errors.action.newValue.message}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <Switch
-                      checked={ruleForm.enabled !== false}
-                      onCheckedChange={(checked) => setRuleForm({ ...ruleForm, enabled: checked })}
+                      checked={ruleForm.watch('enabled')}
+                      onCheckedChange={(checked) => ruleForm.setValue('enabled', checked)}
                     />
                     <Label>Regra ativada</Label>
                   </div>
@@ -480,7 +485,7 @@ const ProfilesManagement = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setRuleForm(rule)}
+                              onClick={() => ruleForm.reset(rule)}
                             >
                               Editar
                             </Button>

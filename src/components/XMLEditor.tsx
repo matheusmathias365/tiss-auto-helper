@@ -1,7 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { Code } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Editor from 'react-simple-code-editor';
+import { highlight, languages } from 'prismjs';
+import 'prismjs/components/prism-xml';
+import 'prismjs/themes/prism.css'; // Ou um tema mais escuro se preferir
 
 interface XMLEditorProps {
   content: string;
@@ -21,7 +24,6 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
     
     // Find the tag around cursor
     const tagStartMatch = textBeforeCursor.match(/<([a-zA-Z:_][\w:.-]*)(?:\s|>)?[^<]*$/);
-    const tagEndMatch = textAfterCursor.match(/^[^>]*>/);
     
     if (tagStartMatch) {
       e.preventDefault();
@@ -30,8 +32,14 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
     }
   };
 
+  const highlightWithLineNumbers = (code: string) => {
+    const highlightedCode = highlight(code, languages.xml, 'xml');
+    const lines = highlightedCode.split('\n');
+    return lines.map((line, i) => `<span class="editor-line-number">${i + 1}</span>${line}`).join('\n');
+  };
+
   return (
-    <Card> {/* Removido h-full daqui */}
+    <Card>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Code className="w-5 h-5 text-primary" />
@@ -39,13 +47,24 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Textarea
-          value={content}
-          onChange={(e) => onChange(e.target.value)}
-          onContextMenu={handleContextMenu}
-          className={cn("font-mono text-xs resize-none h-[1300px]")}
-          placeholder="O conteúdo XML aparecerá aqui..."
-        />
+        <div className="relative border rounded-md overflow-hidden">
+          <Editor
+            value={content}
+            onValueChange={onChange}
+            highlight={highlightWithLineNumbers}
+            padding={10}
+            textareaId="xml-editor-textarea"
+            className={cn("font-mono text-xs resize-none h-[1300px] bg-muted/30")}
+            style={{
+              fontFamily: '"Fira code", "Fira Mono", monospace',
+              fontSize: 12,
+              lineHeight: '1.5em',
+              outline: 'none',
+              whiteSpace: 'pre-wrap',
+            }}
+            onContextMenu={handleContextMenu}
+          />
+        </div>
         <p className="text-xs text-muted-foreground mt-2">
           Edite o XML diretamente. Clique com botão direito numa tag para ver sua explicação.
         </p>
@@ -53,3 +72,6 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
     </Card>
   );
 };
+
+// Adicionar estilos para numeração de linhas
+// Estes estilos devem ser adicionados em src/index.css ou um arquivo CSS global
