@@ -1,17 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Code } from "lucide-react";
-import { cn } from "@/lib/utils"; // Importar cn para combinar classes
+import { cn } from "@/lib/utils";
 
 interface XMLEditorProps {
   content: string;
   onChange: (content: string) => void;
   onTagQuery?: (tag: string) => void;
   title?: string;
-  className?: string; // Adicionar a propriedade className
+  // className?: string; // Removido, a altura será definida diretamente no textarea
 }
 
-export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XML", className }: XMLEditorProps) => {
+export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XML" }: XMLEditorProps) => {
   const handleContextMenu = (e: React.MouseEvent<HTMLTextAreaElement>) => {
     if (!onTagQuery) return;
     
@@ -44,7 +44,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
           value={content}
           onChange={(e) => onChange(e.target.value)}
           onContextMenu={handleContextMenu}
-          className={cn("font-mono text-xs resize-none", className)} // Aplicar className aqui
+          className={cn("font-mono text-xs resize-none h-[1300px]")} // Altura definida diretamente aqui
           placeholder="O conteúdo XML aparecerá aqui..."
         />
         <p className="text-xs text-muted-foreground mt-2">
