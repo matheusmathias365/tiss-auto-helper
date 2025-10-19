@@ -118,6 +118,16 @@ const ConvenioPanel = () => {
       if (ruleChanges > 0) {
         totalChanges += ruleChanges;
         addLog(`Regra "${rule.name}"`, "success", `${ruleChanges} alterações aplicadas`);
+        toast({
+          title: `Regra "${rule.name}" aplicada`,
+          description: `${ruleChanges} alterações realizadas.`,
+        });
+      } else {
+        addLog(`Regra "${rule.name}"`, "info", "Nenhuma alteração necessária");
+        toast({
+          title: `Regra "${rule.name}"`,
+          description: "Nenhuma alteração necessária.",
+        });
       }
     }
 
@@ -157,22 +167,57 @@ const ConvenioPanel = () => {
     content = structureResult.content;
     if (structureResult.changes > 0) {
       addLog("Estrutura corrigida", "success", `${structureResult.changes} correções`);
+      toast({
+        title: "Estrutura corrigida",
+        description: `${structureResult.changes} tags corrigidas com sucesso.`,
+      });
+    } else {
+      addLog("Estrutura verificada", "info", "Nenhuma correção necessária");
+      toast({
+        title: "Estrutura verificada",
+        description: "Nenhuma correção de estrutura necessária.",
+      });
     }
 
     const tipoResult = standardizeTipoAtendimento(content);
     content = tipoResult.content;
     if (tipoResult.changes > 0) {
       addLog("tipoAtendimento padronizado", "success", `${tipoResult.changes} campos`);
+      toast({
+        title: "Padronização de Tipo de Atendimento",
+        description: `${tipoResult.changes} campos 'tipoAtendimento' atualizados.`,
+      });
+    } else {
+      addLog("tipoAtendimento verificado", "info", "Nenhuma alteração");
+      toast({
+        title: "Padronização de Tipo de Atendimento",
+        description: "Nenhuma alteração em 'tipoAtendimento' necessária.",
+      });
     }
 
     const cbosResult = standardizeCBOS(content);
     content = cbosResult.content;
     if (cbosResult.changes > 0) {
       addLog("CBOS padronizado", "success", `${cbosResult.changes} campos`);
+      toast({
+        title: "Padronização de CBOS",
+        description: `${cbosResult.changes} campos 'CBOS' atualizados.`,
+      });
+    } else {
+      addLog("CBOS verificado", "info", "Nenhuma alteração");
+      toast({
+        title: "Padronização de CBOS",
+        description: "Nenhuma alteração em 'CBOS' necessária.",
+      });
     }
 
     const customResult = applyCustomRules(content);
     content = customResult.content;
+    if (customResult.changes > 0) {
+      addLog("Regras personalizadas aplicadas", "success", `${customResult.changes} alterações`);
+    } else {
+      addLog("Regras personalizadas", "info", "Nenhuma regra personalizada aplicada");
+    }
 
     const finalContent = addEpilogo(content);
     setXmlContent(finalContent);
@@ -259,6 +304,10 @@ const ConvenioPanel = () => {
       result.changes > 0 ? "success" : "warning",
       result.changes > 0 ? `${result.changes} correções` : "Nenhuma correção necessária"
     );
+    toast({
+      title: "Estrutura corrigida",
+      description: result.changes > 0 ? `${result.changes} tags corrigidas com sucesso.` : "Nenhuma correção de estrutura necessária.",
+    });
   };
 
   const handleStandardizeTipoAtendimento = () => {
@@ -270,6 +319,10 @@ const ConvenioPanel = () => {
       result.changes > 0 ? "success" : "warning",
       result.changes > 0 ? `${result.changes} campos` : "Nenhuma alteração"
     );
+    toast({
+      title: "Padronização de Tipo de Atendimento",
+      description: result.changes > 0 ? `${result.changes} campos 'tipoAtendimento' atualizados.` : "Nenhuma alteração em 'tipoAtendimento' necessária.",
+    });
   };
 
   const handleStandardizeCBOS = () => {
@@ -281,6 +334,10 @@ const ConvenioPanel = () => {
       result.changes > 0 ? "success" : "warning",
       result.changes > 0 ? `${result.changes} campos` : "Nenhuma alteração"
     );
+    toast({
+      title: "Padronização de CBOS",
+      description: result.changes > 0 ? `${result.changes} campos 'CBOS' atualizados.` : "Nenhuma alteração em 'CBOS' necessária.",
+    });
   };
 
   const handleDeleteGuide = (guideId: string) => {
@@ -293,6 +350,10 @@ const ConvenioPanel = () => {
     
     const deletedGuide = guides.find(g => g.id === guideId);
     addLog("Guia excluída", "info", `Guia ${deletedGuide?.numeroGuiaPrestador}`);
+    toast({
+      title: "Guia excluída",
+      description: `Guia ${deletedGuide?.numeroGuiaPrestador} removida com sucesso.`,
+    });
     
     if (selectedGuideId === guideId) {
       setSelectedGuideId(undefined);
@@ -301,12 +362,23 @@ const ConvenioPanel = () => {
 
   const handleSelectGuide = (guideId: string) => {
     setSelectedGuideId(guideId);
+    const guide = guides.find(g => g.id === guideId);
+    if (guide) {
+      toast({
+        title: "Guia selecionada",
+        description: `Guia ${guide.numeroGuiaPrestador} destacada no editor.`,
+      });
+    }
   };
 
   const handleFindReplace = (newContent: string, changes: number) => {
     saveToHistory(xmlContent);
     setXmlContent(newContent);
     addLog("Substituição realizada", "success", `${changes} substituições`);
+    toast({
+      title: "Substituição realizada",
+      description: `${changes} ocorrência(s) substituída(s).`,
+    });
   };
 
   const handleFixHash = () => {
@@ -314,6 +386,10 @@ const ConvenioPanel = () => {
     const newContent = addEpilogo(xmlContent);
     setXmlContent(newContent);
     addLog("Hash corrigido", "success", "Hash MD5 recalculado");
+    toast({
+      title: "Hash corrigido",
+      description: "Hash MD5 recalculado e epílogo atualizado com sucesso.",
+    });
   };
 
   const handleXMLChange = (newContent: string) => {
@@ -332,6 +408,10 @@ const ConvenioPanel = () => {
       setGuides(newGuides);
       
       addLog("Ação desfeita", "info", "Conteúdo restaurado");
+      toast({
+        title: "Desfeito",
+        description: "Última ação revertida com sucesso.",
+      });
     }
   };
 

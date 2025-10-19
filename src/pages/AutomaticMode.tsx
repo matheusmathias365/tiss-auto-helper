@@ -39,14 +39,53 @@ const AutomaticMode = () => {
     const structureResult = fixXMLStructure(processedContent);
     processedContent = structureResult.content;
     totalChanges += structureResult.changes;
+    if (structureResult.changes > 0) {
+      addLog("Estrutura corrigida", `${structureResult.changes} correções`);
+      toast({
+        title: "Estrutura corrigida",
+        description: `${structureResult.changes} tags corrigidas com sucesso.`,
+      });
+    } else {
+      addLog("Estrutura verificada", "Nenhuma correção necessária");
+      toast({
+        title: "Estrutura verificada",
+        description: "Nenhuma correção de estrutura necessária.",
+      });
+    }
 
     const tipoResult = standardizeTipoAtendimento(processedContent);
     processedContent = tipoResult.content;
     totalChanges += tipoResult.changes;
+    if (tipoResult.changes > 0) {
+      addLog("Tipo de Atendimento padronizado", `${tipoResult.changes} campos`);
+      toast({
+        title: "Padronização de Tipo de Atendimento",
+        description: `${tipoResult.changes} campos 'tipoAtendimento' atualizados.`,
+      });
+    } else {
+      addLog("Tipo de Atendimento verificado", "Nenhuma alteração");
+      toast({
+        title: "Padronização de Tipo de Atendimento",
+        description: "Nenhuma alteração em 'tipoAtendimento' necessária.",
+      });
+    }
 
     const cbosResult = standardizeCBOS(processedContent);
     processedContent = cbosResult.content;
     totalChanges += cbosResult.changes;
+    if (cbosResult.changes > 0) {
+      addLog("CBOS padronizado", `${cbosResult.changes} campos`);
+      toast({
+        title: "Padronização de CBOS",
+        description: `${cbosResult.changes} campos 'CBOS' atualizados.`,
+      });
+    } else {
+      addLog("CBOS verificado", "Nenhuma alteração");
+      toast({
+        title: "Padronização de CBOS",
+        description: "Nenhuma alteração em 'CBOS' necessária.",
+      });
+    }
 
     return { content: processedContent, totalChanges };
   };
@@ -127,6 +166,10 @@ const AutomaticMode = () => {
       }
 
       addLog("Upload", `Arquivo ${file.name} carregado`);
+      toast({
+        title: "Arquivo carregado",
+        description: `O arquivo ${file.name} foi carregado com sucesso.`,
+      });
 
       const result = processXMLFile(content);
       const finalContent = addEpilogo(result.content); // Add epilogo here
@@ -155,6 +198,10 @@ const AutomaticMode = () => {
     const loadedZip = await zip.loadAsync(file);
     
     addLog("Upload", `Arquivo ZIP ${file.name} carregado`);
+    toast({
+      title: "Arquivo ZIP carregado",
+      description: `O arquivo ${file.name} foi carregado com sucesso.`,
+    });
 
     const outputZip = new JSZip();
     let totalFiles = 0;
@@ -176,6 +223,10 @@ const AutomaticMode = () => {
     }
 
     addLog("Processamento", `${totalFiles} arquivos processados. ${totalChanges} correções aplicadas`);
+    toast({
+      title: "Processamento de ZIP concluído",
+      description: `${totalFiles} arquivos XML processados com ${totalChanges} correções.`,
+    });
 
     const totalValue = allGuides.reduce((sum, guide) => sum + guide.valorTotalGeral, 0);
 
