@@ -199,11 +199,13 @@ export const extractGuides = (xmlContent: string): Guide[] => {
     const findGuiaSPSADTRecursive = (obj: any) => {
       if (typeof obj !== 'object' || obj === null) return;
 
-      if (obj['ans:guiaSP-SADT']) {
-        allGuiaSPSADT.push(...obj['ans:guiaSP-SADT']);
-      }
-      if (obj['guiaSP-SADT']) { // Também verifica a tag sem prefixo
-        allGuiaSPSADT.push(...obj['guiaSP-SADT']);
+      // Check for both prefixed and non-prefixed versions of the tag
+      const guiaSPSADTKeys = ['ans:guiaSP-SADT', 'guiaSP-SADT'];
+      for (const key of guiaSPSADTKeys) {
+        if (obj[key]) {
+          // isArray option ensures obj[key] is always an array here
+          allGuiaSPSADT.push(...obj[key]);
+        }
       }
 
       for (const key in obj) {
@@ -262,43 +264,6 @@ export const extractGuides = (xmlContent: string): Guide[] => {
   return guides;
 };
 
-// Helper para recursivamente encontrar e remover uma guia
-const findAndDeleteGuideRecursive = (obj: any, guideId: string): boolean => {
-  if (typeof obj !== 'object' || obj === null) return false;
-
-  let deleted = false;
-
-  // Verifica se o objeto atual contém 'ans:guiaSP-SADT' ou 'guiaSP-SADT' diretamente
-  const guideKeys = ['ans:guiaSP-SADT', 'guiaSP-SADT'];
-  for (const key of guideKeys) {
-    if (obj[key] && Array.isArray(obj[key])) {
-      const initialLength = obj[key].length;
-      obj[key] = obj[key].filter((guideObj: any) => {
-        const currentGuideNumero = getTagValue(guideObj, 'ans:numeroGuiaPrestador') || getTagValue(guideObj, 'numeroGuiaPrestador');
-        return currentGuideNumero !== guideId;
-      });
-      if (obj[key].length < initialLength) {
-        deleted = true;
-        if (obj[key].length === 0) {
-          delete obj[key]; // Remove a propriedade se o array ficar vazio
-        }
-        return true; // Guia encontrada e excluída neste array
-      }
-    }
-  }
-
-  // Continua a busca recursivamente nas propriedades filhas
-  for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object') {
-      if (findAndDeleteGuideRecursive(obj[key], guideId)) {
-        deleted = true;
-        return true; // Para a busca se a guia foi encontrada e excluída em um filho
-      }
-    }
-  }
-  return deleted;
-};
-
 // Exclui uma guia do XML usando parsing e reconstrução
 export const deleteGuide = (xmlContent: string, guideId: string): string => {
   try {
@@ -306,7 +271,41 @@ export const deleteGuide = (xmlContent: string, guideId: string): string => {
     const builder = new XMLBuilder(builderOptions);
     let xmlObj = parser.parse(xmlContent);
 
-    const guideFoundAndDeleted = findAndDeleteGuideRecursive(xmlObj, guideId);
+    let guideFoundAndDeleted = false;
+
+    // Função recursiva para encontrar e remover a guia
+    const findAndDeleteRecursive = (obj: any) => {
+      if (typeof obj !== 'object' || obj === null) return;
+
+      // Check for both prefixed and non-prefixed versions of the tag
+      const guiaSPSADTKeys = ['ans:guiaSP-SADT', 'guiaSP-SADT'];
+      for (const key of guiaSPSADTKeys) {
+        if (obj[key] && Array.isArray(obj[key])) { // isArray ensures obj[key] is always an array
+          const initialLength = obj[key].length;
+          obj[key] = obj[key].filter((guideObj: any) => {
+            const currentGuideNumero = getTagValue(guideObj, 'ans:numeroGuiaPrestador') || getTagValue(guideObj, 'numeroGuiaPrestador');
+            return currentGuideNumero !== guideId;
+          });
+          if (obj[key].length < initialLength) {
+            guideFoundAndDeleted = true;
+            if (obj[key].length === 0) {
+              delete obj[key]; // Remove a propriedade se o array ficar vazio
+            }
+            return; // Stop recursion in this branch after deletion
+          }
+        }
+      }
+
+      // Continue recursive search in child properties
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object') {
+          findAndDeleteRecursive(obj[key]);
+          if (guideFoundAndDeleted) return; // Stop if guide already found and deleted
+        }
+      }
+    };
+
+    findAndDeleteRecursive(xmlObj);
 
     if (guideFoundAndDeleted) {
       return builder.build(xmlObj);
