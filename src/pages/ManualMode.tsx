@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { FileUpload } from "@/components/FileUpload";
 import { ActionButtons } from "@/components/ActionButtons";
-// import { ActivityLog, LogEntry } from "@/components/ActivityLog"; // Removido
 import { GuidesList } from "@/components/GuidesList";
 import { XMLEditor } from "@/components/XMLEditor";
-// import { FindReplacePanel } from "@/components/FindReplacePanel"; // REMOVED
 import { AuditPanel } from "@/components/AuditPanel";
 import { Button } from "@/components/ui/button";
 import { Download, Sparkles, Undo2, ArrowLeft } from "lucide-react";
@@ -31,35 +29,19 @@ const ManualMode = () => {
   const [xmlContent, setXmlContent] = useState<string>("");
   const [originalContent, setOriginalContent] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
-  // const [logs, setLogs] = useState<LogEntry[]>([]); // Removido
   const [history, setHistory] = useState<string[]>([]);
   const [guides, setGuides] = useState<Guide[]>([]);
   const [selectedGuideId, setSelectedGuideId] = useState<string | undefined>();
   const [showFaturistaNameModal, setShowFaturistaNameModal] = useState(false);
-
-  // A função addLog não é mais necessária se ActivityLog for removido
-  // const addLog = (action: string, status: LogEntry['status'], details?: string) => {
-  //   const newLog: LogEntry = {
-  //     id: Date.now().toString(),
-  //     timestamp: new Date(),
-  //     action,
-  //     status,
-  //     details,
-  //   };
-  //   setLogs((prev) => [newLog, ...prev]);
-  // };
 
   const handleFileLoad = (content: string, name: string) => {
     setXmlContent(content);
     setOriginalContent(content);
     setFileName(name);
     setHistory([content]);
-    // setLogs([]); // Removido
     
     const extractedGuides = extractGuides(content);
     setGuides(extractedGuides);
-    
-    // addLog("Arquivo carregado", "success", `${name} com ${extractedGuides.length} guias detectadas`); // Removido
     
     toast({
       title: "Arquivo carregado",
@@ -75,13 +57,6 @@ const ManualMode = () => {
     const result = fixXMLStructure(xmlContent);
     saveToHistory(xmlContent);
     setXmlContent(result.content);
-    // addLog( // Removido
-    //   "Estrutura corrigida",
-    //   result.changes > 0 ? "success" : "warning",
-    //   result.changes > 0
-    //     ? `${result.changes} correções realizadas`
-    //     : "Nenhuma correção necessária"
-    // );
     
     if (result.changes > 0) {
       toast({
@@ -95,13 +70,6 @@ const ManualMode = () => {
     const result = standardizeTipoAtendimento(xmlContent);
     saveToHistory(xmlContent);
     setXmlContent(result.content);
-    // addLog( // Removido
-    //   "Tipo de atendimento padronizado",
-    //   result.changes > 0 ? "success" : "warning",
-    //   result.changes > 0
-    //     ? `${result.changes} campos alterados para valor 23`
-    //     : "Nenhuma alteração necessária"
-    // );
     
     if (result.changes > 0) {
       toast({
@@ -115,13 +83,6 @@ const ManualMode = () => {
     const result = standardizeCBOS(xmlContent);
     saveToHistory(xmlContent);
     setXmlContent(result.content);
-    // addLog( // Removido
-    //   "CBOS padronizado",
-    //   result.changes > 0 ? "success" : "warning",
-    //   result.changes > 0
-    //     ? `${result.changes} campos alterados para código 225125`
-    //     : "Nenhuma alteração necessária"
-    // );
     
     if (result.changes > 0) {
       toast({
@@ -140,11 +101,6 @@ const ManualMode = () => {
     setGuides(newGuides);
     
     const deletedGuide = guides.find(g => g.id === guideId);
-    // addLog( // Removido
-    //   "Guia excluída",
-    //   "info",
-    //   `Guia ${deletedGuide?.numeroGuiaPrestador} removida do lote`
-    // );
     
     toast({
       title: "Guia excluída",
@@ -171,18 +127,12 @@ const ManualMode = () => {
   const handleFindReplace = (newContent: string, changes: number) => {
     saveToHistory(xmlContent);
     setXmlContent(newContent);
-    // addLog( // Removido
-    //   "Substituição realizada",
-    //   "success",
-    //   `${changes} substituições realizadas`
-    // );
   };
 
   const handleFixHash = () => {
     saveToHistory(xmlContent);
     const newContent = addEpilogo(xmlContent);
     setXmlContent(newContent);
-    // addLog("Hash corrigido", "success", "Hash MD5 recalculado e atualizado"); // Removido
     
     toast({
       title: "Hash corrigido",
@@ -205,7 +155,6 @@ const ManualMode = () => {
       const newGuides = extractGuides(previousContent);
       setGuides(newGuides);
       
-      // addLog("Ação desfeita", "info", "Conteúdo restaurado para versão anterior"); // Removido
       toast({
         title: "Desfeito",
         description: "Última ação revertida com sucesso.",
@@ -240,8 +189,6 @@ const ManualMode = () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
-    // addLog("Arquivo baixado", "success", `${downloadName} salvo com hash MD5 atualizado`); // Removido
     
     toast({
       title: "Download concluído",
@@ -306,7 +253,6 @@ const ManualMode = () => {
                       setXmlContent("");
                       setOriginalContent("");
                       setFileName("");
-                      // setLogs([]); // Removido
                       setHistory([]);
                       setGuides([]);
                       setSelectedGuideId(undefined);
@@ -324,8 +270,6 @@ const ManualMode = () => {
                   onStandardizeCBOS={handleStandardizeCBOS}
                   disabled={!xmlContent}
                 />
-
-                {/* REMOVED: FindReplacePanel */}
 
                 <AuditPanel 
                   content={xmlContent}
@@ -369,10 +313,7 @@ const ManualMode = () => {
                   content={xmlContent}
                   onChange={handleXMLChange}
                   title="Editor de XML (Editável)"
-                  // className="h-[400px]" // Removido
                 />
-
-                {/* ActivityLog logs={logs} */}
               </div>
             </div>
           </>
