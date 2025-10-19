@@ -241,6 +241,12 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       // Garante que valorTotalGeral seja sempre um número válido, buscando em tags comuns
       const valorTotalGeral = parseFloat(findTagValueRecursive(guideObj, ['ans:valorTotalGeral', 'valorTotalGeral', 'ans:valorTotal', 'valorTotal']) || '0.00') || 0;
 
+      console.log('--- Extracted Guide Data ---');
+      console.log('Guide Object:', guideObj);
+      console.log('numeroGuiaPrestador:', numeroGuiaPrestador);
+      console.log('valorTotalGeral extracted:', valorTotalGeral);
+      console.log('---------------------------');
+
       guides.push({
         id: numeroGuiaPrestador, // Usar numeroGuiaPrestador como ID
         numeroGuiaPrestador: numeroGuiaPrestador,
