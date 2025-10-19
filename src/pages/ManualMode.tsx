@@ -200,7 +200,7 @@ const ManualMode = () => {
       fileName: fileName,
       guides: extractGuides(contentWithEpilogo),
       totalValue: totalValue,
-      faturistaName: faturistaName,
+      faturistaName: faturistaName, // Passando o nome da faturista
     });
   };
 

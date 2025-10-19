@@ -233,7 +233,7 @@ const ConvenioPanel = () => {
       fileName: fileName,
       guides: extractGuides(contentWithEpilogo),
       totalValue: extractGuides(contentWithEpilogo).reduce((sum, g) => sum + g.valorTotalGeral, 0),
-      faturistaName: faturistaName,
+      faturistaName: faturistaName, // Passando o nome da faturista
     });
 
     setDownloadContent("");

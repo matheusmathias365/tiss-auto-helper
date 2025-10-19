@@ -4,9 +4,10 @@ interface PrintableProtocolProps {
   fileName: string;
   guides: Guide[];
   totalValue: number;
+  faturistaName: string; // Adicionado o nome da faturista
 }
 
-export const generateProtocolHTML = ({ fileName, guides, totalValue }: PrintableProtocolProps): string => {
+export const generateProtocolHTML = ({ fileName, guides, totalValue, faturistaName }: PrintableProtocolProps): string => {
   const currentDate = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -173,7 +174,7 @@ export const generateProtocolHTML = ({ fileName, guides, totalValue }: Printable
       <div class="signature-section">
         <div class="info-row">
           <span class="info-label">Nome do Faturista:</span>
-          <span class="signature-line" style="flex: 1; margin-left: 20px;"></span>
+          <span class="info-value">${faturistaName}</span> <!-- Exibindo o nome da faturista -->
         </div>
         <div class="info-row">
           <span class="info-label">Data da Impressão:</span>

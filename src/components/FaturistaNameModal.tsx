@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { loadFaturistaName, saveFaturistaName } from "@/utils/localStorage"; // Importando as novas funções
 
 interface FaturistaNameModalProps {
   isOpen: boolean;
@@ -24,12 +25,14 @@ export const FaturistaNameModal = ({ isOpen, onClose, onConfirm }: FaturistaName
 
   useEffect(() => {
     if (isOpen) {
-      setFaturistaName(""); // Reset input when modal opens
+      const storedName = loadFaturistaName(); // Carrega o nome salvo
+      setFaturistaName(storedName);
     }
   }, [isOpen]);
 
   const handleConfirm = () => {
     if (faturistaName.trim()) {
+      saveFaturistaName(faturistaName.trim()); // Salva o nome antes de confirmar
       onConfirm(faturistaName.trim());
       onClose();
     }

@@ -1,6 +1,7 @@
 import { Profile, CorrectionRule, ProfilesConfig } from '@/types/profiles';
 
 const STORAGE_KEY = 'tiss_assistant_config';
+const FATURISTA_NAME_KEY = 'tiss_faturista_name'; // Nova chave para o nome da faturista
 const VERSION = '10.0.0';
 
 export const loadConfig = (): ProfilesConfig => {
@@ -82,5 +83,23 @@ export const importConfig = (jsonString: string): boolean => {
   } catch (error) {
     console.error('Error importing config:', error);
     return false;
+  }
+};
+
+// Funções para o nome da faturista
+export const loadFaturistaName = (): string => {
+  try {
+    return localStorage.getItem(FATURISTA_NAME_KEY) || '';
+  } catch (error) {
+    console.error('Error loading faturista name:', error);
+    return '';
+  }
+};
+
+export const saveFaturistaName = (name: string): void => {
+  try {
+    localStorage.setItem(FATURISTA_NAME_KEY, name);
+  } catch (error) {
+    console.error('Error saving faturista name:', error);
   }
 };

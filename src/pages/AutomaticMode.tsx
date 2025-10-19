@@ -233,7 +233,7 @@ const AutomaticMode = () => {
       fileName: originalFileName,
       guides: currentGuides,
       totalValue: currentTotalValue,
-      faturistaName: faturistaName,
+      faturistaName: faturistaName, // Passando o nome da faturista
     });
 
     setProcessing(false);
