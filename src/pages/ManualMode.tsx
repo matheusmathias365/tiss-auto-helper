@@ -4,7 +4,7 @@ import { ActionButtons } from "@/components/ActionButtons";
 import { ActivityLog, LogEntry } from "@/components/ActivityLog";
 import { GuidesList } from "@/components/GuidesList";
 import { XMLEditor } from "@/components/XMLEditor";
-import { FindReplacePanel } from "@/components/FindReplacePanel";
+// import { FindReplacePanel } from "@/components/FindReplacePanel"; // REMOVED
 import { AuditPanel } from "@/components/AuditPanel";
 import { Button } from "@/components/ui/button";
 import { Download, Sparkles, Undo2, ArrowLeft } from "lucide-react";
@@ -21,6 +21,7 @@ import {
   Guide,
 } from "@/utils/xmlProcessor";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
+import { FaturistaNameModal } from "@/components/FaturistaNameModal";
 
 const ManualMode = () => {
   const { toast } = useToast();
@@ -32,6 +33,7 @@ const ManualMode = () => {
   const [history, setHistory] = useState<string[]>([]);
   const [guides, setGuides] = useState<Guide[]>([]);
   const [selectedGuideId, setSelectedGuideId] = useState<string | undefined>();
+  const [showFaturistaNameModal, setShowFaturistaNameModal] = useState(false);
 
   const addLog = (action: string, status: LogEntry['status'], details?: string) => {
     const newLog: LogEntry = {
@@ -51,7 +53,6 @@ const ManualMode = () => {
     setHistory([content]);
     setLogs([]);
     
-    // Extract guides
     const extractedGuides = extractGuides(content);
     setGuides(extractedGuides);
     
@@ -132,7 +133,6 @@ const ManualMode = () => {
     const newContent = deleteGuide(xmlContent, guideId, guides);
     setXmlContent(newContent);
     
-    // Update guides list
     const newGuides = guides.filter(g => g.id !== guideId);
     setGuides(newGuides);
     
@@ -158,8 +158,6 @@ const ManualMode = () => {
     const guide = guides.find(g => g.id === guideId);
     
     if (guide) {
-      // Find the guide in the XML and scroll to it
-      // This is a simple implementation - in a real app you'd want more sophisticated scrolling
       toast({
         title: "Guia selecionada",
         description: `Guia ${guide.numeroGuiaPrestador} destacada no editor.`,
@@ -191,7 +189,6 @@ const ManualMode = () => {
 
   const handleXMLChange = (newContent: string) => {
     setXmlContent(newContent);
-    // Update guides when XML changes
     const newGuides = extractGuides(newContent);
     setGuides(newGuides);
   };
@@ -202,7 +199,6 @@ const ManualMode = () => {
       setXmlContent(previousContent);
       setHistory((prev) => prev.slice(0, -1));
       
-      // Update guides
       const newGuides = extractGuides(previousContent);
       setGuides(newGuides);
       
@@ -214,10 +210,13 @@ const ManualMode = () => {
     }
   };
 
-  const handleDownload = async () => {
+  const handleDownloadTrigger = () => {
+    setShowFaturistaNameModal(true);
+  };
+
+  const handleConfirmFaturistaName = async (faturistaName: string) => {
     if (!xmlContent || !fileName) return;
     
-    // Add epilogo with new hash
     const contentWithEpilogo = addEpilogo(xmlContent);
     
     const zip = new JSZip();
@@ -229,7 +228,6 @@ const ManualMode = () => {
     const link = document.createElement('a');
     link.href = url;
     
-    // Use original filename (without _corrigido suffix)
     const downloadName = fileName.endsWith('.xml') 
       ? fileName.replace('.xml', '.zip')
       : `${fileName}.zip`;
@@ -247,18 +245,17 @@ const ManualMode = () => {
       description: `Arquivo ${downloadName} baixado com sucesso.`,
     });
 
-    // Open printable protocol
-    const totalValue = guides.reduce((sum, guide) => sum + guide.valorTotalGeral, 0);
+    const totalValue = extractGuides(contentWithEpilogo).reduce((sum, guide) => sum + guide.valorTotalGeral, 0);
     openPrintableProtocol({
       fileName: fileName,
-      guides: guides,
-      totalValue: totalValue
+      guides: extractGuides(contentWithEpilogo),
+      totalValue: totalValue,
+      faturistaName: faturistaName,
     });
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b bg-card shadow-sm">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
@@ -283,7 +280,6 @@ const ManualMode = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8 space-y-8">
         {!xmlContent ? (
           <div className="max-w-2xl mx-auto">
@@ -299,11 +295,8 @@ const ManualMode = () => {
           </div>
         ) : (
           <>
-            {/* Main Layout: 2 Column Grid - Control Panel (Left) + Workspace (Right) */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* LEFT COLUMN: Control Panel and Actions */}
               <div className="lg:col-span-4 space-y-6">
-                {/* Card 1: File Upload */}
                 <div className="space-y-4">
                   <Button
                     onClick={() => {
@@ -322,7 +315,6 @@ const ManualMode = () => {
                   </Button>
                 </div>
 
-                {/* Card 2: Batch Actions */}
                 <ActionButtons
                   onFixStructure={handleFixStructure}
                   onStandardizeTipoAtendimento={handleStandardizeTipoAtendimento}
@@ -330,19 +322,13 @@ const ManualMode = () => {
                   disabled={!xmlContent}
                 />
 
-                {/* Card 3: Find and Replace */}
-                <FindReplacePanel
-                  content={xmlContent}
-                  onReplace={handleFindReplace}
-                />
+                {/* REMOVED: FindReplacePanel */}
 
-                {/* Card 4: Active Audit Panel */}
                 <AuditPanel 
                   content={xmlContent}
                   onFixHash={handleFixHash}
                 />
 
-                {/* Card 5: Control Buttons */}
                 <div className="flex flex-col gap-2">
                   <Button
                     onClick={handleUndo}
@@ -354,7 +340,7 @@ const ManualMode = () => {
                     Desfazer Última Ação
                   </Button>
                   <Button
-                    onClick={handleDownload}
+                    onClick={handleDownloadTrigger}
                     className="w-full gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
                   >
                     <Download className="w-4 h-4" />
@@ -363,24 +349,26 @@ const ManualMode = () => {
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: Workspace and Visualization */}
               <div className="lg:col-span-8 space-y-6">
-                {/* Card 1: Guides List */}
-                <GuidesList
+                <ConferenciaPanel
+                  originalValue={originalContent ? extractGuides(originalContent).reduce((sum, g) => sum + g.valorTotalGeral, 0) : 0}
+                  currentValue={guides.reduce((sum, g) => sum + g.valorTotalGeral, 0)}
+                />
+
+                <TriagemTable
                   guides={guides}
                   onDeleteGuide={handleDeleteGuide}
                   onSelectGuide={handleSelectGuide}
                   selectedGuideId={selectedGuideId}
                 />
 
-                {/* Card 2: Interactive XML Editor */}
                 <XMLEditor
                   content={xmlContent}
                   onChange={handleXMLChange}
                   title="Editor de XML (Editável)"
+                  className="h-[300px]" {/* Adjusted height */}
                 />
 
-                {/* Activity Log */}
                 <ActivityLog logs={logs} />
               </div>
             </div>
@@ -388,7 +376,6 @@ const ManualMode = () => {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t mt-16 py-8 bg-card">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>
@@ -399,6 +386,11 @@ const ManualMode = () => {
           </p>
         </div>
       </footer>
+      <FaturistaNameModal
+        isOpen={showFaturistaNameModal}
+        onClose={() => setShowFaturistaNameModal(false)}
+        onConfirm={handleConfirmFaturistaName}
+      />
     </div>
   );
 };

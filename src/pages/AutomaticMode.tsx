@@ -5,8 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Upload, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import JSZip from "jszip";
-import { fixXMLStructure, standardizeTipoAtendimento, standardizeCBOS, extractGuides } from "@/utils/xmlProcessor";
+import { fixXMLStructure, standardizeTipoAtendimento, standardizeCBOS, extractGuides, addEpilogo } from "@/utils/xmlProcessor";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
+import { FaturistaNameModal } from "@/components/FaturistaNameModal";
 
 interface ProcessingLog {
   action: string;
@@ -20,6 +21,10 @@ const AutomaticMode = () => {
   const [processing, setProcessing] = useState(false);
   const [logs, setLogs] = useState<ProcessingLog[]>([]);
   const [originalFileName, setOriginalFileName] = useState<string>("");
+  const [processedContentForDownload, setProcessedContentForDownload] = useState<string | Blob | null>(null); // Stores XML string or ZIP Blob
+  const [currentGuides, setCurrentGuides] = useState<any[]>([]);
+  const [currentTotalValue, setCurrentTotalValue] = useState<number>(0);
+  const [showFaturistaNameModal, setShowFaturistaNameModal] = useState(false);
 
   const addLog = (action: string, details: string) => {
     setLogs((prev) => [...prev, { action, details, timestamp: new Date() }]);
@@ -123,42 +128,16 @@ const AutomaticMode = () => {
       addLog("Upload", `Arquivo ${file.name} carregado`);
 
       const result = processXMLFile(content);
+      const finalContent = addEpilogo(result.content); // Add epilogo here
       addLog("Processamento", `${result.totalChanges} correções aplicadas`);
 
-      // Extract guides for protocol
-      const guides = extractGuides(result.content);
+      const guides = extractGuides(finalContent);
       const totalValue = guides.reduce((sum, guide) => sum + guide.valorTotalGeral, 0);
 
-      // Create ZIP with processed file
-      const zip = new JSZip();
-      const baseName = file.name.replace('.xml', '');
-      zip.file(`${baseName}.xml`, result.content);
-
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(zipBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${baseName}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      addLog("Download", `${baseName}.zip baixado`);
-      
-      toast({
-        title: "Processamento concluído!",
-        description: "O arquivo foi corrigido e baixado automaticamente.",
-      });
-
-      // Open printable protocol
-      openPrintableProtocol({
-        fileName: file.name,
-        guides: guides,
-        totalValue: totalValue
-      });
-
-      setProcessing(false);
+      setProcessedContentForDownload(finalContent); // Store XML string
+      setCurrentGuides(guides);
+      setCurrentTotalValue(totalValue);
+      setShowFaturistaNameModal(true);
     };
 
     reader.readAsText(file);
@@ -173,57 +152,94 @@ const AutomaticMode = () => {
     const outputZip = new JSZip();
     let totalFiles = 0;
     let totalChanges = 0;
+    const allGuides: any[] = [];
 
     for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
       if (!zipEntry.dir && filename.endsWith('.xml')) {
         const content = await zipEntry.async('text');
         const result = processXMLFile(content);
-        outputZip.file(filename, result.content);
+        const finalContent = addEpilogo(result.content); // Add epilogo here for each XML in zip
+        outputZip.file(filename, finalContent);
         totalFiles++;
         totalChanges += result.totalChanges;
+        
+        const fileGuides = extractGuides(finalContent);
+        allGuides.push(...fileGuides);
       }
     }
 
     addLog("Processamento", `${totalFiles} arquivos processados. ${totalChanges} correções aplicadas`);
 
-    // Extract guides from all processed files for protocol
-    const allGuides: any[] = [];
-    for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
-      if (!zipEntry.dir && filename.endsWith('.xml')) {
-        const processedContent = await outputZip.file(filename)?.async('text');
-        if (processedContent) {
-          const fileGuides = extractGuides(processedContent);
-          allGuides.push(...fileGuides);
-        }
-      }
-    }
     const totalValue = allGuides.reduce((sum, guide) => sum + guide.valorTotalGeral, 0);
 
     const zipBlob = await outputZip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(zipBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = file.name; // Use original filename
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    setProcessedContentForDownload(zipBlob); // Store ZIP Blob
+    setCurrentGuides(allGuides);
+    setCurrentTotalValue(totalValue);
+    setShowFaturistaNameModal(true);
+  };
 
-    addLog("Download", `${file.name} baixado com ${totalFiles} arquivos`);
+  const handleConfirmFaturistaName = async (faturistaName: string) => {
+    if (!processedContentForDownload || !originalFileName) {
+      toast({
+        title: "Erro no download",
+        description: "Nenhum conteúdo processado para baixar.",
+        variant: "destructive",
+      });
+      setProcessing(false);
+      return;
+    }
+
+    let downloadBlob: Blob | null = null;
+    let downloadName = originalFileName;
+
+    if (processedContentForDownload instanceof Blob) {
+      // It's a ZIP file
+      downloadBlob = processedContentForDownload;
+      downloadName = originalFileName; // Keep original name for ZIP
+    } else {
+      // It's a single XML string, wrap it in a ZIP
+      const zip = new JSZip();
+      const baseName = originalFileName.replace('.xml', '');
+      zip.file(`${baseName}.xml`, processedContentForDownload);
+      downloadBlob = await zip.generateAsync({ type: "blob" });
+      downloadName = `${baseName}.zip`;
+    }
+
+    if (downloadBlob) {
+      const url = URL.createObjectURL(downloadBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = downloadName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      addLog("Download", `${downloadName} baixado`);
+    } else {
+      toast({
+        title: "Erro no download",
+        description: "Não foi possível gerar o arquivo para download.",
+        variant: "destructive",
+      });
+    }
 
     toast({
       title: "Processamento concluído!",
-      description: `${totalFiles} arquivos foram corrigidos e baixados automaticamente.`,
+      description: "O arquivo foi corrigido e baixado automaticamente.",
     });
 
-    // Open printable protocol
     openPrintableProtocol({
-      fileName: file.name,
-      guides: allGuides,
-      totalValue: totalValue
+      fileName: originalFileName,
+      guides: currentGuides,
+      totalValue: currentTotalValue,
+      faturistaName: faturistaName,
     });
 
     setProcessing(false);
+    setProcessedContentForDownload(null);
+    setCurrentGuides([]);
+    setCurrentTotalValue(0);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -320,6 +336,14 @@ const AutomaticMode = () => {
           )}
         </div>
       </div>
+      <FaturistaNameModal
+        isOpen={showFaturistaNameModal}
+        onClose={() => {
+          setShowFaturistaNameModal(false);
+          setProcessing(false); // Allow new uploads if modal is closed
+        }}
+        onConfirm={handleConfirmFaturistaName}
+      />
     </div>
   );
 };

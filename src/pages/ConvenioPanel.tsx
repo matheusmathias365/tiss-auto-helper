@@ -14,7 +14,7 @@ import { TriagemTable } from "@/components/TriagemTable";
 import { AssistenteTISS } from "@/components/AssistenteTISS";
 import { ArrowLeft, HelpCircle, Download, Undo2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { loadConfig, saveConfig } from "@/utils/localStorage";
+import { loadConfig } from "@/utils/localStorage";
 import JSZip from "jszip";
 import {
   fixXMLStructure,
@@ -26,6 +26,8 @@ import {
   Guide,
 } from "@/utils/xmlProcessor";
 import { CorrectionRule } from "@/types/profiles";
+import { openPrintableProtocol } from "@/components/PrintableProtocol";
+import { FaturistaNameModal } from "@/components/FaturistaNameModal";
 
 const ConvenioPanel = () => {
   const { profileId } = useParams();
@@ -45,6 +47,8 @@ const ConvenioPanel = () => {
   const [selectedGuideId, setSelectedGuideId] = useState<string | undefined>();
   const [assistentOpen, setAssistentOpen] = useState(false);
   const [assistentTag, setAssistentTag] = useState<string>("");
+  const [showFaturistaNameModal, setShowFaturistaNameModal] = useState(false);
+  const [downloadContent, setDownloadContent] = useState<string>("");
 
   useEffect(() => {
     if (!profile) {
@@ -130,7 +134,6 @@ const ConvenioPanel = () => {
     const extractedGuides = extractGuides(content);
     setGuides(extractedGuides);
     
-    // Calculate and fix original value (immutable)
     const totalOriginal = extractedGuides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
     setOriginalValue(totalOriginal);
     
@@ -150,7 +153,6 @@ const ConvenioPanel = () => {
     let content = xmlContent;
     saveToHistory(content);
 
-    // 1. Correções padrão
     const structureResult = fixXMLStructure(content);
     content = structureResult.content;
     if (structureResult.changes > 0) {
@@ -169,58 +171,72 @@ const ConvenioPanel = () => {
       addLog("CBOS padronizado", "success", `${cbosResult.changes} campos`);
     }
 
-    // 2. Aplicar regras personalizadas
     const customResult = applyCustomRules(content);
     content = customResult.content;
 
-    // 3. Adicionar hash
     const finalContent = addEpilogo(content);
     setXmlContent(finalContent);
-
-    // 4. Download automático
-    await downloadFile(finalContent);
-    
-    toast({
-      title: "Processamento concluído",
-      description: "Correções aplicadas e arquivo baixado automaticamente",
-    });
+    setDownloadContent(finalContent);
+    setShowFaturistaNameModal(true);
   };
 
-  const downloadFile = async (content: string) => {
-    if (!content || !fileName) return;
+  const handleDownloadTrigger = () => {
+    setDownloadContent(xmlContent);
+    setShowFaturistaNameModal(true);
+  };
+
+  const handleConfirmFaturistaName = async (faturistaName: string) => {
+    if (!downloadContent || !fileName) return;
     
-    const contentWithEpilogo = addEpilogo(content);
+    const contentWithEpilogo = addEpilogo(downloadContent);
     
+    let finalDownloadBlob: Blob | null = null;
+    let downloadFileName = fileName;
+
     if (profile.outputFormat === 'zip') {
       const zip = new JSZip();
       const xmlFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
       zip.file(xmlFileName, contentWithEpilogo);
-      
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(zipBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName.endsWith('.xml') 
+      finalDownloadBlob = await zip.generateAsync({ type: "blob" });
+      downloadFileName = fileName.endsWith('.xml') 
         ? fileName.replace('.xml', '.zip')
         : `${fileName}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
     } else {
-      // XML direto
-      const blob = new Blob([contentWithEpilogo], { type: 'application/xml' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      finalDownloadBlob = new Blob([contentWithEpilogo], { type: 'application/xml' });
+      downloadFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
     }
 
-    addLog("Arquivo baixado", "success", `Formato: ${profile.outputFormat.toUpperCase()}`);
+    if (finalDownloadBlob) {
+      const url = URL.createObjectURL(finalDownloadBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = downloadFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      addLog("Arquivo baixado", "success", `Formato: ${profile.outputFormat.toUpperCase()}`);
+    } else {
+      toast({
+        title: "Erro no download",
+        description: "Não foi possível gerar o arquivo para download.",
+        variant: "destructive",
+      });
+    }
+    
+    toast({
+      title: "Download concluído",
+      description: `Arquivo ${downloadFileName} baixado com sucesso.`,
+    });
+
+    openPrintableProtocol({
+      fileName: fileName,
+      guides: extractGuides(contentWithEpilogo),
+      totalValue: extractGuides(contentWithEpilogo).reduce((sum, g) => sum + g.valorTotalGeral, 0),
+      faturistaName: faturistaName,
+    });
+
+    setDownloadContent("");
   };
 
   const handleFixStructure = () => {
@@ -409,10 +425,7 @@ const ConvenioPanel = () => {
                     disabled={!xmlContent}
                   />
 
-                  <FindReplacePanel
-                    content={xmlContent}
-                    onReplace={handleFindReplace}
-                  />
+                  {/* REMOVED: FindReplacePanel */}
 
                   <div className="flex flex-col gap-3">
                     <Button
@@ -425,7 +438,7 @@ const ConvenioPanel = () => {
                       Desfazer Última Ação
                     </Button>
                     <Button
-                      onClick={() => downloadFile(xmlContent)}
+                      onClick={handleDownloadTrigger}
                       className="w-full gap-2 bg-gradient-to-r from-green-600 to-green-700"
                     >
                       <Download className="w-4 h-4" />
@@ -462,6 +475,11 @@ const ConvenioPanel = () => {
           </Tabs>
         )}
       </main>
+      <FaturistaNameModal
+        isOpen={showFaturistaNameModal}
+        onClose={() => setShowFaturistaNameModal(false)}
+        onConfirm={handleConfirmFaturistaName}
+      />
     </div>
   );
 };
