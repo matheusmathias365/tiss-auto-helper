@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calculator } from "lucide-react";
+import { formatCurrency } from "@/lib/utils"; // Importar a função de formatação
 
 interface ConferenciaPanelProps {
   originalValue: number;
@@ -25,14 +26,14 @@ export const ConferenciaPanel = ({ originalValue, currentValue }: ConferenciaPan
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <span className="text-sm font-medium">Valor Original:</span>
             <span className="text-lg font-bold">
-              R$ {originalValue.toFixed(2)}
+              {formatCurrency(originalValue)}
             </span>
           </div>
           
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <span className="text-sm font-medium">Valor Atual:</span>
             <span className="text-lg font-bold text-primary">
-              R$ {currentValue.toFixed(2)}
+              {formatCurrency(currentValue)}
             </span>
           </div>
 
@@ -45,7 +46,7 @@ export const ConferenciaPanel = ({ originalValue, currentValue }: ConferenciaPan
                 <div className={`text-lg font-bold ${
                   difference < 0 ? 'text-destructive' : 'text-green-600'
                 }`}>
-                  {difference > 0 ? '+' : ''}R$ {difference.toFixed(2)}
+                  {difference > 0 ? '+' : ''}{formatCurrency(difference)}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   ({difference > 0 ? '+' : ''}{percentageChange}%)

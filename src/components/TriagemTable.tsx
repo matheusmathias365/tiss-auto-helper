@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Trash2, ArrowUpDown, Filter } from "lucide-react";
 import { Guide } from "@/utils/xmlProcessor";
+import { formatCurrency } from "@/lib/utils"; // Importar a função de formatação
 
 interface TriagemTableProps {
   guides: Guide[];
@@ -150,7 +151,7 @@ export const TriagemTable = ({
                         {guide.nomeProfissional}
                       </TableCell>
                       <TableCell className="text-right font-semibold">
-                        R$ {guide.valorTotalGeral.toFixed(2)}
+                        {formatCurrency(guide.valorTotalGeral)}
                       </TableCell>
                       <TableCell>
                         <Button

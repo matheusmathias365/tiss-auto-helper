@@ -1,4 +1,5 @@
 import { Guide } from "@/utils/xmlProcessor";
+import { formatCurrency } from "@/lib/utils"; // Importar a função de formatação
 
 interface PrintableProtocolProps {
   fileName: string;
@@ -209,7 +210,7 @@ export const generateProtocolHTML = ({ fileName, guides, totalValue, faturistaNa
               <td>${guide.numeroGuiaPrestador}</td>
               <td>${guide.numeroCarteira}</td>
               <td>${guide.nomeProfissional}</td>
-              <td style="text-align: right;">${guide.valorTotalGeral.toFixed(2)}</td>
+              <td style="text-align: right;">${formatCurrency(guide.valorTotalGeral)}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -217,7 +218,7 @@ export const generateProtocolHTML = ({ fileName, guides, totalValue, faturistaNa
       
       <div class="total-section">
         <div class="total-label">VALOR TOTAL DO LOTE:</div>
-        <div class="total-value">R$ ${totalValue.toFixed(2)}</div>
+        <div class="total-value">${formatCurrency(totalValue)}</div>
       </div>
       
       <div class="footer">

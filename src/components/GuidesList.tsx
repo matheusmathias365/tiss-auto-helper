@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { formatCurrency } from "@/lib/utils"; // Importar a função de formatação
 
 interface GuidesListProps {
   guides: Guide[];
@@ -50,7 +51,7 @@ export const GuidesList = ({ guides, onDeleteGuide, onSelectGuide, selectedGuide
                     <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
                       <div className="truncate">Carteira: {guide.numeroCarteira}</div>
                       <div className="truncate">Prof.: {guide.nomeProfissional}</div>
-                      <div>Valor: R$ {guide.valorTotalGeral}</div>
+                      <div>Valor: {formatCurrency(guide.valorTotalGeral)}</div>
                     </div>
                   </div>
                   <AlertDialog>
