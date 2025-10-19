@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Upload, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import JSZip from "jszip";
-import { fixXMLStructure, standardizeTipoAtendimento, standardizeCBOS, extractGuides, addEpilogo } from "@/utils/xmlProcessor";
+import { fixXMLStructure, standardizeTipoAtendimento, standardizeCBOS, extractGuides, addEpilogo, extractLotNumber } from "@/utils/xmlProcessor"; // Importar extractLotNumber
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
 import { FaturistaNameModal } from "@/components/FaturistaNameModal";
 import { loadFaturistaName } from "@/utils/localStorage"; // Importar loadFaturistaName
@@ -207,10 +207,14 @@ const AutomaticMode = () => {
     let totalFiles = 0;
     let totalChanges = 0;
     const allGuides: any[] = [];
+    let firstXmlContent: string | null = null; // To extract lot number from the first XML
 
     for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
       if (!zipEntry.dir && filename.endsWith('.xml')) {
         const content = await zipEntry.async('text');
+        if (!firstXmlContent) {
+          firstXmlContent = content; // Store content of the first XML for lot number extraction
+        }
         const result = processXMLFile(content);
         const finalContent = addEpilogo(result.content); // Add epilogo here for each XML in zip
         outputZip.file(filename, finalContent);
@@ -237,13 +241,13 @@ const AutomaticMode = () => {
     
     const storedFaturistaName = loadFaturistaName();
     if (storedFaturistaName) {
-      handleConfirmFaturistaName(storedFaturistaName);
+      handleConfirmFaturistaName(storedFaturistaName, firstXmlContent || undefined); // Pass firstXmlContent
     } else {
       setShowFaturistaNameModal(true);
     }
   };
 
-  const handleConfirmFaturistaName = async (faturistaName: string) => {
+  const handleConfirmFaturistaName = async (faturistaName: string, xmlContentForLot?: string) => {
     if (!processedContentForDownload || !originalFileName) {
       toast({
         title: "Erro no download",
@@ -256,6 +260,7 @@ const AutomaticMode = () => {
 
     let downloadBlob: Blob | null = null;
     let downloadName = originalFileName;
+    let contentForLotExtraction = xmlContentForLot;
 
     if (processedContentForDownload instanceof Blob) {
       // It's a ZIP file
@@ -268,6 +273,7 @@ const AutomaticMode = () => {
       zip.file(`${baseName}.xml`, processedContentForDownload);
       downloadBlob = await zip.generateAsync({ type: "blob" });
       downloadName = `${baseName}.zip`;
+      contentForLotExtraction = processedContentForDownload; // Use the single XML content for lot number
     }
 
     if (downloadBlob) {
@@ -293,11 +299,14 @@ const AutomaticMode = () => {
       description: "O arquivo foi corrigido e baixado automaticamente.",
     });
 
+    const lotNumber = contentForLotExtraction ? extractLotNumber(contentForLotExtraction) : undefined; // Extract lot number
     openPrintableProtocol({
       fileName: originalFileName,
       guides: currentGuides,
       totalValue: currentTotalValue,
-      faturistaName: faturistaName, // Passando o nome da faturista
+      faturistaName: faturistaName,
+      convenioName: "Modo Automático", // Nome genérico para o modo automático
+      lotNumber: lotNumber, // Passando o número do lote
     });
 
     setProcessing(false);
@@ -406,7 +415,7 @@ const AutomaticMode = () => {
           setShowFaturistaNameModal(false);
           setProcessing(false); // Allow new uploads if modal is closed
         }}
-        onConfirm={handleConfirmFaturistaName}
+        onConfirm={(name) => handleConfirmFaturistaName(name, processedContentForDownload instanceof Blob ? undefined : processedContentForDownload || undefined)}
       />
     </div>
   );

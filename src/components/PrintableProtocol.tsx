@@ -4,10 +4,12 @@ interface PrintableProtocolProps {
   fileName: string;
   guides: Guide[];
   totalValue: number;
-  faturistaName: string; // Adicionado o nome da faturista
+  faturistaName: string;
+  convenioName: string; // Novo: Nome do convênio
+  lotNumber?: string; // Novo: Número do lote (opcional)
 }
 
-export const generateProtocolHTML = ({ fileName, guides, totalValue, faturistaName }: PrintableProtocolProps): string => {
+export const generateProtocolHTML = ({ fileName, guides, totalValue, faturistaName, convenioName, lotNumber }: PrintableProtocolProps): string => {
   const currentDate = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -166,6 +168,16 @@ export const generateProtocolHTML = ({ fileName, guides, totalValue, faturistaNa
           <span class="info-value">${fileName}</span>
         </div>
         <div class="info-row">
+          <span class="info-label">Convênio:</span>
+          <span class="info-value">${convenioName}</span>
+        </div>
+        ${lotNumber ? `
+        <div class="info-row">
+          <span class="info-label">Número do Lote:</span>
+          <span class="info-value">${lotNumber}</span>
+        </div>
+        ` : ''}
+        <div class="info-row">
           <span class="info-label">Quantidade de Guias:</span>
           <span class="info-value">${guides.length}</span>
         </div>
@@ -174,7 +186,7 @@ export const generateProtocolHTML = ({ fileName, guides, totalValue, faturistaNa
       <div class="signature-section">
         <div class="info-row">
           <span class="info-label">Nome do Faturista:</span>
-          <span class="info-value">${faturistaName}</span> <!-- Exibindo o nome da faturista -->
+          <span class="info-value">${faturistaName}</span>
         </div>
         <div class="info-row">
           <span class="info-label">Data da Impressão:</span>

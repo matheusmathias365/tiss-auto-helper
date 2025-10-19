@@ -24,6 +24,7 @@ import {
   deleteGuide,
   addEpilogo,
   Guide,
+  extractLotNumber, // Importar a nova função
 } from "@/utils/xmlProcessor";
 import { CorrectionRule } from "@/types/profiles";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
@@ -288,11 +289,14 @@ const ConvenioPanel = () => {
       description: `Arquivo ${downloadFileName} baixado com sucesso.`,
     });
 
+    const lotNumber = extractLotNumber(contentWithEpilogo); // Extrair número do lote
     openPrintableProtocol({
       fileName: fileName,
       guides: extractGuides(contentWithEpilogo),
       totalValue: extractGuides(contentWithEpilogo).reduce((sum, g) => sum + g.valorTotalGeral, 0),
-      faturistaName: faturistaName, // Passando o nome da faturista
+      faturistaName: faturistaName,
+      convenioName: profile.name, // Nome do perfil como nome do convênio
+      lotNumber: lotNumber, // Passar o número do lote
     });
 
     setDownloadContent("");

@@ -17,6 +17,7 @@ import {
   deleteGuide,
   addEpilogo,
   Guide,
+  extractLotNumber, // Importar a nova função
 } from "@/utils/xmlProcessor";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
 import { FaturistaNameModal } from "@/components/FaturistaNameModal";
@@ -216,11 +217,14 @@ const ManualMode = () => {
     });
 
     const totalValue = extractGuides(contentWithEpilogo).reduce((sum, g) => sum + g.valorTotalGeral, 0);
+    const lotNumber = extractLotNumber(contentWithEpilogo); // Extrair número do lote
     openPrintableProtocol({
       fileName: fileName,
       guides: extractGuides(contentWithEpilogo),
       totalValue: totalValue,
-      faturistaName: faturistaName, // Passando o nome da faturista
+      faturistaName: faturistaName,
+      convenioName: "Modo Manual", // Nome genérico para o modo manual
+      lotNumber: lotNumber, // Passar o número do lote
     });
   };
 

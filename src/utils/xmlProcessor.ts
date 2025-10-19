@@ -529,3 +529,23 @@ export const downloadXML = (content: string, fileName: string) => {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
+
+export const extractLotNumber = (xmlContent: string): string | undefined => {
+  const parser = new XMLParser(parserOptions);
+  try {
+    const xmlObj = parser.parse(xmlContent);
+    // Common paths for numeroLote
+    const lotNumber = findTagValueRecursive(xmlObj, [
+      'ans:cabecalho.ans:numeroLote', // Specific path
+      'ans:numeroLote', // Direct child of root or other high-level tag
+      'numeroLote' // Without namespace
+    ]);
+    return lotNumber;
+  } catch (error) {
+    console.error("Erro ao extrair número do lote:", error);
+    // Fallback to regex if parsing fails
+    const lotNumberMatch = xmlContent.match(/<ans:numeroLote>(.*?)<\/ans:numeroLote>/) ||
+                           xmlContent.match(/<numeroLote>(.*?)<\/numeroLote>/);
+    return lotNumberMatch ? lotNumberMatch[1] : undefined;
+  }
+};
