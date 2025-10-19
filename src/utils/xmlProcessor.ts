@@ -180,10 +180,24 @@ export const standardizeCBOS = (xmlContent: string): ProcessingResult => {
   }
 };
 
-// Helper para obter o valor de uma tag, considerando objetos com #text ou valores diretos
-const getTagValue = (obj: any, tag: string): string => {
-  const value = obj[tag];
-  return typeof value === 'object' && '#text' in value ? value['#text'] : value;
+// Helper para recursivamente encontrar o valor de uma tag, considerando objetos com #text ou valores diretos
+const findTagValueRecursive = (obj: any, tagNames: string[]): string | undefined => {
+  if (typeof obj !== 'object' || obj === null) return undefined;
+
+  for (const tagName of tagNames) {
+    if (obj[tagName] !== undefined) {
+      const value = obj[tagName];
+      return typeof value === 'object' && '#text' in value ? value['#text'] : String(value);
+    }
+  }
+
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object') {
+      const result = findTagValueRecursive(obj[key], tagNames);
+      if (result !== undefined) return result;
+    }
+  }
+  return undefined;
 };
 
 // Extrai guias do XML de forma robusta
@@ -199,11 +213,13 @@ export const extractGuides = (xmlContent: string): Guide[] => {
     const findGuiaSPSADTRecursive = (obj: any) => {
       if (typeof obj !== 'object' || obj === null) return;
 
-      if (obj['ans:guiaSP-SADT']) {
-        allGuiaSPSADT.push(...obj['ans:guiaSP-SADT']);
-      }
-      if (obj['guiaSP-SADT']) { // Também verifica a tag sem prefixo
-        allGuiaSPSADT.push(...obj['guiaSP-SADT']);
+      // Check for both prefixed and non-prefixed versions of the tag
+      const guiaSPSADTKeys = ['ans:guiaSP-SADT', 'guiaSP-SADT'];
+      for (const key of guiaSPSADTKeys) {
+        if (obj[key]) {
+          // isArray option ensures obj[key] is always an array here
+          allGuiaSPSADT.push(...obj[key]);
+        }
       }
 
       for (const key in obj) {
@@ -218,12 +234,12 @@ export const extractGuides = (xmlContent: string): Guide[] => {
     allGuiaSPSADT.forEach((guideObj: any) => {
       if (!guideObj) return;
 
-      const numeroGuiaPrestador = getTagValue(guideObj, 'ans:numeroGuiaPrestador') || getTagValue(guideObj, 'numeroGuiaPrestador') || 'N/A';
-      const numeroCarteira = getTagValue(guideObj, 'ans:numeroCarteira') || getTagValue(guideObj, 'numeroCarteira') || 'N/A';
-      const nomeProfissional = getTagValue(guideObj, 'ans:nomeProfissional') || getTagValue(guideObj, 'nomeProfissional') || 'N/A';
-      // Garante que valorTotalGeral seja sempre um número válido
-      const valorTotalGeral = parseFloat(getTagValue(guideObj, 'ans:valorTotalGeral') || getTagValue(guideObj, 'valorTotalGeral') || '0.00') || 0;
-      const dataExecucao = getTagValue(guideObj, 'ans:dataExecucao') || getTagValue(guideObj, 'dataExecucao') || 'N/A';
+      const numeroGuiaPrestador = findTagValueRecursive(guideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']) || 'N/A';
+      const numeroCarteira = findTagValueRecursive(guideObj, ['ans:numeroCarteira', 'numeroCarteira']) || 'N/A';
+      const nomeProfissional = findTagValueRecursive(guideObj, ['ans:nomeProfissional', 'nomeProfissional']) || 'N/A';
+      const dataExecucao = findTagValueRecursive(guideObj, ['ans:dataExecucao', 'dataExecucao']) || 'N/A';
+      // Garante que valorTotalGeral seja sempre um número válido, buscando em tags comuns
+      const valorTotalGeral = parseFloat(findTagValueRecursive(guideObj, ['ans:valorTotalGeral', 'valorTotalGeral', 'ans:valorTotal', 'valorTotal']) || '0.00') || 0;
 
       guides.push({
         id: numeroGuiaPrestador, // Usar numeroGuiaPrestador como ID
@@ -282,7 +298,7 @@ export const deleteGuide = (xmlContent: string, guideId: string): string => {
         if (obj[key] && Array.isArray(obj[key])) { // isArray ensures obj[key] is always an array
           const initialLength = obj[key].length;
           obj[key] = obj[key].filter((guideObj: any) => {
-            const currentGuideNumero = getTagValue(guideObj, 'ans:numeroGuiaPrestador') || getTagValue(guideObj, 'numeroGuiaPrestador');
+            const currentGuideNumero = findTagValueRecursive(guideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']);
             return currentGuideNumero !== guideId;
           });
           if (obj[key].length < initialLength) {
