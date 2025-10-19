@@ -15,7 +15,7 @@ import {
   standardizeCBOS,
   extractGuides,
   deleteGuide,
-  addEpilogo, // Importar addEpilogo
+  addEpilogo,
   Guide,
 } from "@/utils/xmlProcessor";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
@@ -94,14 +94,14 @@ const ManualMode = () => {
 
   const handleDeleteGuide = (guideId: string) => {
     saveToHistory(xmlContent);
-    let newContent = deleteGuide(xmlContent, guideId, guides); // Remove a guia
+    let newContent = deleteGuide(xmlContent, guideId); // Usa o novo deleteGuide
     newContent = addEpilogo(newContent); // Recalcula e adiciona o epílogo com o novo hash
     setXmlContent(newContent);
     
     const newGuides = guides.filter(g => g.id !== guideId);
     setGuides(newGuides);
     
-    const deletedGuide = guides.find(g => g.id === guideId);
+    const deletedGuide = guides.find(g => g.id === guideId); // Ainda usa o ID antigo para o toast
     
     toast({
       title: "Guia excluída",
@@ -313,6 +313,7 @@ const ManualMode = () => {
                 <XMLEditor
                   content={xmlContent}
                   onChange={handleXMLChange}
+                  onTagQuery={handleTagQuery}
                   title="Editor de XML (Editável)"
                 />
               </div>
