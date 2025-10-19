@@ -146,11 +146,6 @@ export const generateProtocolHTML = ({ fileName, guides, totalValue, faturistaNa
         @media print {
           body {
             padding: 0;
-            zoom: 70%; /* Define a escala de impressão para 70% */
-            -moz-transform: scale(0.7); /* Para Firefox */
-            -webkit-transform: scale(0.7); /* Para Chrome/Safari */
-            transform: scale(0.7);
-            transform-origin: top left; /* Garante que a escala comece do canto superior esquerdo */
           }
           
           .no-print {
