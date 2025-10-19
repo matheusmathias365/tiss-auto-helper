@@ -15,7 +15,7 @@ import {
   standardizeCBOS,
   extractGuides,
   deleteGuide,
-  addEpilogo,
+  addEpilogo, // Importar addEpilogo
   Guide,
 } from "@/utils/xmlProcessor";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
@@ -94,7 +94,8 @@ const ManualMode = () => {
 
   const handleDeleteGuide = (guideId: string) => {
     saveToHistory(xmlContent);
-    const newContent = deleteGuide(xmlContent, guideId, guides);
+    let newContent = deleteGuide(xmlContent, guideId, guides); // Remove a guia
+    newContent = addEpilogo(newContent); // Recalcula e adiciona o epílogo com o novo hash
     setXmlContent(newContent);
     
     const newGuides = guides.filter(g => g.id !== guideId);
@@ -104,7 +105,7 @@ const ManualMode = () => {
     
     toast({
       title: "Guia excluída",
-      description: `Guia ${deletedGuide?.numeroGuiaPrestador} removida com sucesso.`,
+      description: `Guia ${deletedGuide?.numeroGuiaPrestador} removida com sucesso. O hash foi recalculado.`,
     });
     
     if (selectedGuideId === guideId) {
