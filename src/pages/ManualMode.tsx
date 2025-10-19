@@ -58,6 +58,9 @@ const ManualMode = () => {
     saveToHistory(xmlContent);
     setXmlContent(result.content);
     
+    // Recarregar guias após a modificação do XML
+    setGuides(extractGuides(result.content));
+
     if (result.changes > 0) {
       toast({
         title: "Estrutura corrigida",
@@ -70,6 +73,9 @@ const ManualMode = () => {
     const result = standardizeTipoAtendimento(xmlContent);
     saveToHistory(xmlContent);
     setXmlContent(result.content);
+
+    // Recarregar guias após a modificação do XML
+    setGuides(extractGuides(result.content));
     
     if (result.changes > 0) {
       toast({
@@ -83,6 +89,9 @@ const ManualMode = () => {
     const result = standardizeCBOS(xmlContent);
     saveToHistory(xmlContent);
     setXmlContent(result.content);
+
+    // Recarregar guias após a modificação do XML
+    setGuides(extractGuides(result.content));
     
     if (result.changes > 0) {
       toast({
@@ -94,12 +103,13 @@ const ManualMode = () => {
 
   const handleDeleteGuide = (guideId: string) => {
     saveToHistory(xmlContent);
-    let newContent = deleteGuide(xmlContent, guideId); // Usa o novo deleteGuide
+    let newContent = deleteGuide(xmlContent, guideId);
     newContent = addEpilogo(newContent); // Recalcula e adiciona o epílogo com o novo hash
     setXmlContent(newContent);
     
-    const newGuides = guides.filter(g => g.id !== guideId);
-    setGuides(newGuides);
+    // CORRIGIDO: Recarregar guias do novo conteúdo XML
+    const updatedGuides = extractGuides(newContent);
+    setGuides(updatedGuides);
     
     const deletedGuide = guides.find(g => g.id === guideId); // Ainda usa o ID antigo para o toast
     
@@ -128,6 +138,8 @@ const ManualMode = () => {
   const handleFindReplace = (newContent: string, changes: number) => {
     saveToHistory(xmlContent);
     setXmlContent(newContent);
+    // Recarregar guias após a modificação do XML
+    setGuides(extractGuides(newContent));
   };
 
   const handleFixHash = () => {
@@ -135,6 +147,9 @@ const ManualMode = () => {
     const newContent = addEpilogo(xmlContent);
     setXmlContent(newContent);
     
+    // Recarregar guias após a modificação do XML (se o hash afetar algo, embora não deva)
+    setGuides(extractGuides(newContent));
+
     toast({
       title: "Hash corrigido",
       description: "Hash MD5 recalculado e epílogo atualizado com sucesso.",
@@ -203,6 +218,10 @@ const ManualMode = () => {
       totalValue: totalValue,
       faturistaName: faturistaName, // Passando o nome da faturista
     });
+  };
+
+  const handleTagQuery = (tag: string) => {
+    // Implementação do Assistente TISS
   };
 
   return (

@@ -223,6 +223,9 @@ const ConvenioPanel = () => {
     setXmlContent(finalContent);
     setDownloadContent(finalContent);
     
+    // Recarregar guias após o processamento automático
+    setGuides(extractGuides(finalContent));
+
     const storedFaturistaName = loadFaturistaName();
     if (storedFaturistaName) {
       handleConfirmFaturistaName(storedFaturistaName);
@@ -299,6 +302,8 @@ const ConvenioPanel = () => {
     const result = fixXMLStructure(xmlContent);
     saveToHistory(xmlContent);
     setXmlContent(result.content);
+    // Recarregar guias após a modificação do XML
+    setGuides(extractGuides(result.content));
     addLog(
       "Estrutura corrigida",
       result.changes > 0 ? "success" : "warning",
@@ -314,6 +319,8 @@ const ConvenioPanel = () => {
     const result = standardizeTipoAtendimento(xmlContent);
     saveToHistory(xmlContent);
     setXmlContent(result.content);
+    // Recarregar guias após a modificação do XML
+    setGuides(extractGuides(result.content));
     addLog(
       "tipoAtendimento padronizado",
       result.changes > 0 ? "success" : "warning",
@@ -329,6 +336,8 @@ const ConvenioPanel = () => {
     const result = standardizeCBOS(xmlContent);
     saveToHistory(xmlContent);
     setXmlContent(result.content);
+    // Recarregar guias após a modificação do XML
+    setGuides(extractGuides(result.content));
     addLog(
       "CBOS padronizado",
       result.changes > 0 ? "success" : "warning",
@@ -342,12 +351,13 @@ const ConvenioPanel = () => {
 
   const handleDeleteGuide = (guideId: string) => {
     saveToHistory(xmlContent);
-    let newContent = deleteGuide(xmlContent, guideId); // Usa o novo deleteGuide
+    let newContent = deleteGuide(xmlContent, guideId);
     newContent = addEpilogo(newContent); // Recalcula e adiciona o epílogo com o novo hash
     setXmlContent(newContent);
     
-    const newGuides = guides.filter(g => g.id !== guideId);
-    setGuides(newGuides);
+    // CORRIGIDO: Recarregar guias do novo conteúdo XML
+    const updatedGuides = extractGuides(newContent);
+    setGuides(updatedGuides);
     
     const deletedGuide = guides.find(g => g.id === guideId); // Ainda usa o ID antigo para o toast
     addLog("Guia excluída", "info", `Guia ${deletedGuide?.numeroGuiaPrestador}. Hash recalculado.`);
@@ -375,6 +385,8 @@ const ConvenioPanel = () => {
   const handleFindReplace = (newContent: string, changes: number) => {
     saveToHistory(xmlContent);
     setXmlContent(newContent);
+    // Recarregar guias após a modificação do XML
+    setGuides(extractGuides(newContent));
     addLog("Substituição realizada", "success", `${changes} substituições`);
     toast({
       title: "Substituição realizada",
@@ -386,6 +398,8 @@ const ConvenioPanel = () => {
     saveToHistory(xmlContent);
     const newContent = addEpilogo(xmlContent);
     setXmlContent(newContent);
+    // Recarregar guias após a modificação do XML (se o hash afetar algo, embora não deva)
+    setGuides(extractGuides(newContent));
     addLog("Hash corrigido", "success", "Hash MD5 recalculado");
     toast({
       title: "Hash corrigido",
@@ -416,7 +430,7 @@ const ConvenioPanel = () => {
     }
   };
 
-  const currentValue = extractGuides(xmlContent).reduce((sum, g) => sum + g.valorTotalGeral, 0);
+  const currentValue = guides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
   
   const handleTagQuery = (tag: string) => {
     setAssistentTag(tag);

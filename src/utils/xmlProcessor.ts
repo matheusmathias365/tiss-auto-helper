@@ -199,13 +199,11 @@ export const extractGuides = (xmlContent: string): Guide[] => {
     const findGuiaSPSADTRecursive = (obj: any) => {
       if (typeof obj !== 'object' || obj === null) return;
 
-      // Check for both prefixed and non-prefixed versions of the tag
-      const guiaSPSADTKeys = ['ans:guiaSP-SADT', 'guiaSP-SADT'];
-      for (const key of guiaSPSADTKeys) {
-        if (obj[key]) {
-          // isArray option ensures obj[key] is always an array here
-          allGuiaSPSADT.push(...obj[key]);
-        }
+      if (obj['ans:guiaSP-SADT']) {
+        allGuiaSPSADT.push(...obj['ans:guiaSP-SADT']);
+      }
+      if (obj['guiaSP-SADT']) { // Também verifica a tag sem prefixo
+        allGuiaSPSADT.push(...obj['guiaSP-SADT']);
       }
 
       for (const key in obj) {
@@ -223,6 +221,7 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       const numeroGuiaPrestador = getTagValue(guideObj, 'ans:numeroGuiaPrestador') || getTagValue(guideObj, 'numeroGuiaPrestador') || 'N/A';
       const numeroCarteira = getTagValue(guideObj, 'ans:numeroCarteira') || getTagValue(guideObj, 'numeroCarteira') || 'N/A';
       const nomeProfissional = getTagValue(guideObj, 'ans:nomeProfissional') || getTagValue(guideObj, 'nomeProfissional') || 'N/A';
+      // Garante que valorTotalGeral seja sempre um número válido
       const valorTotalGeral = parseFloat(getTagValue(guideObj, 'ans:valorTotalGeral') || getTagValue(guideObj, 'valorTotalGeral') || '0.00') || 0;
       const dataExecucao = getTagValue(guideObj, 'ans:dataExecucao') || getTagValue(guideObj, 'dataExecucao') || 'N/A';
 
