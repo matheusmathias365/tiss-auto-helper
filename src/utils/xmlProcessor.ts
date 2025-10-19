@@ -8,13 +8,12 @@ export interface ProcessingResult {
 }
 
 export interface Guide {
-  id: string; // Changed to be numeroGuiaPrestador for stable identification
+  id: string; // Usará o numeroGuiaPrestador como ID único
   numeroGuiaPrestador: string;
   numeroCarteira: string;
   nomeProfissional: string;
   valorTotalGeral: number;
   dataExecucao: string;
-  // xmlNode: any; // Removed as it's no longer used for deletion
 }
 
 // Safe XML parser configuration to prevent XXE and entity expansion attacks
@@ -29,6 +28,13 @@ const parserOptions = {
   processEntities: false, // Critical: prevents entity expansion attacks
   allowBooleanAttributes: true,
   stopNodes: ["*.CDATA"], // Don't parse CDATA content
+  // Força que 'ans:guiaSP-SADT' e 'guiaSP-SADT' sejam sempre arrays
+  isArray: (tagName: string, jPath: string, is  : boolean) => {
+    if (tagName === "ans:guiaSP-SADT" || tagName === "guiaSP-SADT") {
+      return true;
+    }
+    return is;
+  }
 };
 
 const builderOptions = {
@@ -174,42 +180,52 @@ export const standardizeCBOS = (xmlContent: string): ProcessingResult => {
   }
 };
 
-// Extract guides from XML
+// Helper para obter o valor de uma tag, considerando objetos com #text ou valores diretos
+const getTagValue = (obj: any, tag: string): string => {
+  const value = obj[tag];
+  return typeof value === 'object' && '#text' in value ? value['#text'] : value;
+};
+
+// Extrai guias do XML de forma robusta
 export const extractGuides = (xmlContent: string): Guide[] => {
   const guides: Guide[] = [];
   const parser = new XMLParser(parserOptions);
   
   try {
     const xmlObj = parser.parse(xmlContent);
-    let guidesArray: any[] = [];
+    const allGuiaSPSADT: any[] = [];
 
-    // Common paths for TISS guides
-    if (xmlObj['ans:tissLoteGuias'] && xmlObj['ans:tissLoteGuias']['ans:guias'] && xmlObj['ans:tissLoteGuias']['ans:guias']['ans:guiaSP-SADT']) {
-      guidesArray = xmlObj['ans:tissLoteGuias']['ans:guias']['ans:guiaSP-SADT'];
-    } else if (xmlObj['ans:prestadorParaOperadora'] && xmlObj['ans:prestadorParaOperadora']['ans:guias'] && xmlObj['ans:prestadorParaOperadora']['ans:guias']['ans:guiaSP-SADT']) {
-      guidesArray = xmlObj['ans:prestadorParaOperadora']['ans:guias']['ans:guiaSP-SADT'];
-    }
+    // Função recursiva para encontrar todas as tags 'ans:guiaSP-SADT' ou 'guiaSP-SADT'
+    const findGuiaSPSADTRecursive = (obj: any) => {
+      if (typeof obj !== 'object' || obj === null) return;
 
-    if (!Array.isArray(guidesArray)) {
-      guidesArray = [guidesArray]; // Ensure it's an array even for a single guide
-    }
+      if (obj['ans:guiaSP-SADT']) {
+        allGuiaSPSADT.push(...obj['ans:guiaSP-SADT']);
+      }
+      if (obj['guiaSP-SADT']) { // Também verifica a tag sem prefixo
+        allGuiaSPSADT.push(...obj['guiaSP-SADT']);
+      }
 
-    guidesArray.forEach((guideObj: any) => {
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object') {
+          findGuiaSPSADTRecursive(obj[key]);
+        }
+      }
+    };
+
+    findGuiaSPSADTRecursive(xmlObj);
+
+    allGuiaSPSADT.forEach((guideObj: any) => {
       if (!guideObj) return;
 
-      const getTagValue = (obj: any, tag: string) => {
-        const value = obj[tag];
-        return typeof value === 'object' && '#text' in value ? value['#text'] : value;
-      };
-
-      const numeroGuiaPrestador = getTagValue(guideObj, 'ans:numeroGuiaPrestador') || 'N/A';
-      const numeroCarteira = getTagValue(guideObj, 'ans:numeroCarteira') || 'N/A';
-      const nomeProfissional = getTagValue(guideObj, 'ans:nomeProfissional') || 'N/A';
-      const valorTotalGeral = parseFloat(getTagValue(guideObj, 'ans:valorTotalGeral') || '0.00') || 0;
-      const dataExecucao = getTagValue(guideObj, 'ans:dataExecucao') || 'N/A';
+      const numeroGuiaPrestador = getTagValue(guideObj, 'ans:numeroGuiaPrestador') || getTagValue(guideObj, 'numeroGuiaPrestador') || 'N/A';
+      const numeroCarteira = getTagValue(guideObj, 'ans:numeroCarteira') || getTagValue(guideObj, 'numeroCarteira') || 'N/A';
+      const nomeProfissional = getTagValue(guideObj, 'ans:nomeProfissional') || getTagValue(guideObj, 'nomeProfissional') || 'N/A';
+      const valorTotalGeral = parseFloat(getTagValue(guideObj, 'ans:valorTotalGeral') || getTagValue(guideObj, 'valorTotalGeral') || '0.00') || 0;
+      const dataExecucao = getTagValue(guideObj, 'ans:dataExecucao') || getTagValue(guideObj, 'dataExecucao') || 'N/A';
 
       guides.push({
-        id: numeroGuiaPrestador, // Use numeroGuiaPrestador as the unique ID
+        id: numeroGuiaPrestador, // Usar numeroGuiaPrestador como ID
         numeroGuiaPrestador: numeroGuiaPrestador,
         numeroCarteira: numeroCarteira,
         nomeProfissional: nomeProfissional,
@@ -218,8 +234,9 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       });
     });
   } catch (error) {
-    console.error("Error parsing XML for guide extraction:", error);
-    // Fallback to regex if parsing fails, less reliable but better than nothing
+    console.error("Erro ao parsear XML para extração de guias:", error);
+    // Fallback para regex se o parsing falhar, menos confiável mas evita quebras
+    const regexGuides: Guide[] = [];
     const guideRegex = /<ans:guiaSP-SADT>([\s\S]*?)<\/ans:guiaSP-SADT>/g;
     let match;
     while ((match = guideRegex.exec(xmlContent)) !== null) {
@@ -230,7 +247,7 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       const valorTotalGeral = parseFloat((guideContent.match(/<ans:valorTotalGeral>(.*?)<\/ans:valorTotalGeral>/) || [])[1] || '0.00') || 0;
       const dataExecucao = (guideContent.match(/<ans:dataExecucao>(.*?)<\/ans:dataExecucao>/) || [])[1] || 'N/A';
 
-      guides.push({
+      regexGuides.push({
         id: numeroGuiaPrestador,
         numeroGuiaPrestador: numeroGuiaPrestador,
         numeroCarteira: numeroCarteira,
@@ -239,86 +256,88 @@ export const extractGuides = (xmlContent: string): Guide[] => {
         dataExecucao: dataExecucao,
       });
     }
+    return regexGuides;
   }
 
   return guides;
 };
 
-// Delete a guide from XML using XML parsing and rebuilding
+// Exclui uma guia do XML usando parsing e reconstrução
 export const deleteGuide = (xmlContent: string, guideId: string): string => {
   try {
     const parser = new XMLParser(parserOptions);
     const builder = new XMLBuilder(builderOptions);
     let xmlObj = parser.parse(xmlContent);
 
-    let guidesContainer = null;
-    let guidesPath: string[] = [];
+    let guideFoundAndDeleted = false;
 
-    if (xmlObj['ans:tissLoteGuias'] && xmlObj['ans:tissLoteGuias']['ans:guias']) {
-      guidesContainer = xmlObj['ans:tissLoteGuias']['ans:guias'];
-      guidesPath = ['ans:tissLoteGuias', 'ans:guias', 'ans:guiaSP-SADT'];
-    } else if (xmlObj['ans:prestadorParaOperadora'] && xmlObj['ans:prestadorParaOperadora']['ans:guias']) {
-      guidesContainer = xmlObj['ans:prestadorParaOperadora']['ans:guias'];
-      guidesPath = ['ans:prestadorParaOperadora', 'ans:guias', 'ans:guiaSP-SADT'];
-    }
+    // Função recursiva para encontrar e remover a guia
+    const findAndDeleteRecursive = (obj: any) => {
+      if (typeof obj !== 'object' || obj === null) return;
 
-    if (guidesContainer && guidesContainer['ans:guiaSP-SADT']) {
-      let currentGuides = guidesContainer['ans:guiaSP-SADT'];
-      
-      if (!Array.isArray(currentGuides)) {
-        currentGuides = [currentGuides];
-      }
+      // Verifica se o objeto atual contém 'ans:guiaSP-SADT' ou 'guiaSP-SADT'
+      const guiaSPSADTKey = obj['ans:guiaSP-SADT'] ? 'ans:guiaSP-SADT' : (obj['guiaSP-SADT'] ? 'guiaSP-SADT' : null);
 
-      const updatedGuides = currentGuides.filter((guide: any) => {
-        const numGuia = guide['ans:numeroGuiaPrestador'];
-        const actualNumGuia = typeof numGuia === 'object' && '#text' in numGuia ? numGuia['#text'] : numGuia;
-        return actualNumGuia !== guideId;
-      });
+      if (guiaSPSADTKey) {
+        let currentGuides = obj[guiaSPSADTKey]; // Será sempre um array devido a isArray
+        const initialLength = currentGuides.length;
 
-      if (updatedGuides.length > 0) {
-        guidesContainer['ans:guiaSP-SADT'] = updatedGuides.length === 1 ? updatedGuides[0] : updatedGuides;
-      } else {
-        // If no guides left, remove the 'ans:guiaSP-SADT' tag
-        if (guidesPath.length > 0) {
-          let parent = xmlObj;
-          for (let i = 0; i < guidesPath.length - 1; i++) {
-            parent = parent[guidesPath[i]];
+        obj[guiaSPSADTKey] = currentGuides.filter((guideObj: any) => {
+          const currentGuideNumero = getTagValue(guideObj, 'ans:numeroGuiaPrestador') || getTagValue(guideObj, 'numeroGuiaPrestador');
+          return currentGuideNumero !== guideId;
+        });
+
+        if (obj[guiaSPSADTKey].length < initialLength) {
+          guideFoundAndDeleted = true;
+          if (obj[guiaSPSADTKey].length === 0) {
+            delete obj[guiaSPSADTKey]; // Remove a propriedade se o array ficar vazio
           }
-          delete parent[guidesPath[guidesPath.length - 1]];
+          return; // Para a recursão neste ramo após a exclusão
         }
       }
 
-      return builder.build(xmlObj);
+      // Continua a busca recursivamente nas propriedades filhas
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object') {
+          findAndDeleteRecursive(obj[key]);
+          if (guideFoundAndDeleted) return; // Para se a guia já foi encontrada e excluída
+        }
+      }
+    };
 
+    findAndDeleteRecursive(xmlObj);
+
+    if (guideFoundAndDeleted) {
+      return builder.build(xmlObj);
     } else {
-      console.warn("Could not find 'ans:guiaSP-SADT' in the expected path for deletion.");
-      return xmlContent;
+      console.warn(`Guia com ID ${guideId} não encontrada para exclusão.`);
+      return xmlContent; // Retorna o conteúdo original se a guia não for encontrada
     }
+
   } catch (error) {
-    console.error("Error deleting guide using XML parsing:", error);
-    // Fallback to regex if parsing fails, less reliable but better than nothing
-    // This regex needs to be more specific to avoid deleting wrong guides if numbers repeat
+    console.error("Erro ao excluir guia usando parsing XML:", error);
+    // Fallback para regex se o parsing falhar
     const guideRegex = new RegExp(`<ans:guiaSP-SADT>[\\s\\S]*?<ans:numeroGuiaPrestador>${guideId}<\\/ans:numeroGuiaPrestador>[\\s\\S]*?<\\/ans:guiaSP-SADT>`, 'g');
     return xmlContent.replace(guideRegex, '');
   }
 };
 
-// Calculate MD5 hash of content (excluding epilogo)
+// Calcula o hash MD5 do conteúdo (excluindo o epílogo)
 export const calculateHash = (xmlContent: string): string => {
-  // Remove epilogo if exists
+  // Remove epílogo existente antes de calcular o hash
   const contentWithoutEpilogo = xmlContent.replace(/<ans:epilogo>[\s\S]*?<\/ans:epilogo>/g, '');
   return md5(contentWithoutEpilogo);
 };
 
-// Add epilogo with hash to XML
+// Adiciona o epílogo com o hash ao XML
 export const addEpilogo = (xmlContent: string): string => {
-  // Remove existing epilogo
+  // Remove epílogo existente para evitar duplicatas
   let content = xmlContent.replace(/<ans:epilogo>[\s\S]*?<\/ans:epilogo>/g, '');
   
-  // Calculate hash
+  // Calcula o hash do conteúdo atualizado
   const hash = calculateHash(content);
   
-  // Find the closing tag of prestadorParaOperadora or tissLoteGuias
+  // Encontra a tag de fechamento de prestadorParaOperadora ou tissLoteGuias
   let closingTag = '</ans:prestadorParaOperadora>';
   let insertIndex = content.lastIndexOf(closingTag);
 
@@ -327,14 +346,14 @@ export const addEpilogo = (xmlContent: string): string => {
     insertIndex = content.lastIndexOf(closingTag);
   }
   
-  if (insertIndex === -1) return content; // If no suitable closing tag found, return original content
+  if (insertIndex === -1) return content; // Se nenhuma tag de fechamento adequada for encontrada, retorna o conteúdo original
   
   const epilogo = `  <ans:epilogo>\n    <ans:hash>${hash}</ans:hash>\n  </ans:epilogo>\n`;
   
   return content.slice(0, insertIndex) + epilogo + content.slice(insertIndex);
 };
 
-// Validate hash
+// Valida o hash
 export const validateHash = (xmlContent: string): string => {
   const hashMatch = xmlContent.match(/<ans:hash>(.*?)<\/ans:hash>/);
   
@@ -352,11 +371,11 @@ export const validateHash = (xmlContent: string): string => {
   }
 };
 
-// Find empty fields
+// Encontra campos vazios
 export const findEmptyFields = (xmlContent: string): string => {
   const emptyTags: string[] = [];
   
-  // Check for self-closing tags or empty tags
+  // Verifica tags auto-fechadas ou vazias
   const cbosEmpty = xmlContent.match(/<ans:CBOS\s*\/>/g) || xmlContent.match(/<ans:CBOS><\/ans:CBOS>/g);
   if (cbosEmpty && cbosEmpty.length > 0) {
     emptyTags.push(`<ans:CBOS /> (${cbosEmpty.length} ocorrências)`);
@@ -379,25 +398,15 @@ export const findEmptyFields = (xmlContent: string): string => {
   return `⚠️ ALERTA: Encontradas tags vazias: ${emptyTags.join(', ')}`;
 };
 
-// Validate professional data
+// Valida dados profissionais
 export const validateProfessionalData = (xmlContent: string): string[] => {
   const results: string[] = [];
   const guides = extractGuides(xmlContent);
   
   guides.forEach(guide => {
-    // The guide.xmlNode is no longer available, so we need to re-extract or pass more context
-    // For now, we'll rely on the extracted guide properties
     const guideNumber = guide.numeroGuiaPrestador;
     
-    // Check for empty CBOS with professional name (this check needs the full XML node or a more complex parse)
-    // For simplicity, we'll assume if CBOS is 'N/A' from extractGuides, it's empty
-    if (guide.numeroGuiaPrestador !== 'N/A' && guide.nomeProfissional !== 'N/A') {
-      // This check is harder without the full XML node for the guide.
-      // A more robust solution would involve parsing the XML for each guide individually.
-      // For now, we'll skip the empty CBOS check here as it's unreliable without the full XML context.
-    }
-    
-    // Check for suspicious professional names (procedures instead of names)
+    // Verifica nomes de profissionais suspeitos (procedimentos em vez de nomes)
     const suspiciousNames = [
       'ECOCARDIOGRAMA', 'ULTRASSOM', 'RAIO-X', 'TOMOGRAFIA', 'RESSONANCIA',
       'LABORATORIO', 'EXAME', 'CONSULTA', 'PROCEDIMENTO'
@@ -409,9 +418,6 @@ export const validateProfessionalData = (xmlContent: string): string[] => {
     if (isSuspicious) {
       results.push(`⚠️ ALERTA (Guia ${guideNumber}): Nome de profissional ('${guide.nomeProfissional}') parece ser um procedimento, não um nome válido.`);
     }
-    
-    // Check for invalid CRM (very short numbers) - this also needs the full XML node or a more complex parse
-    // Skipping for now as it's unreliable without the full XML context.
   });
   
   if (results.length === 0) {
