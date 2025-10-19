@@ -371,7 +371,7 @@ const ManualMode = () => {
                   className="h-[400px]" 
                 />
 
-                {/* <ActivityLog logs={logs} /> */}
+                {/* ActivityLog logs={logs} */}
               </div>
             </div>
           </>
