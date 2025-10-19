@@ -22,6 +22,8 @@ import {
 } from "@/utils/xmlProcessor";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
 import { FaturistaNameModal } from "@/components/FaturistaNameModal";
+import { ConferenciaPanel } from "@/components/ConferenciaPanel";
+import { TriagemTable } from "@/components/TriagemTable";
 
 const ManualMode = () => {
   const { toast } = useToast();
@@ -366,7 +368,7 @@ const ManualMode = () => {
                   content={xmlContent}
                   onChange={handleXMLChange}
                   title="Editor de XML (Editável)"
-                  className="h-[300px]" {/* Adjusted height */}
+                  className="h-[300px]" 
                 />
 
                 <ActivityLog logs={logs} />
