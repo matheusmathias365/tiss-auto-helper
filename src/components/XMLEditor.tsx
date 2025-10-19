@@ -8,7 +8,6 @@ interface XMLEditorProps {
   onChange: (content: string) => void;
   onTagQuery?: (tag: string) => void;
   title?: string;
-  // className?: string; // Removido, a altura será definida diretamente no textarea
 }
 
 export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XML" }: XMLEditorProps) => {
@@ -32,7 +31,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
   };
 
   return (
-    <Card className="h-full">
+    <Card> {/* Removido h-full daqui */}
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Code className="w-5 h-5 text-primary" />
@@ -44,7 +43,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
           value={content}
           onChange={(e) => onChange(e.target.value)}
           onContextMenu={handleContextMenu}
-          className={cn("font-mono text-xs resize-none h-[1300px]")} // Altura definida diretamente aqui
+          className={cn("font-mono text-xs resize-none h-[1300px]")}
           placeholder="O conteúdo XML aparecerá aqui..."
         />
         <p className="text-xs text-muted-foreground mt-2">
