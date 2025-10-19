@@ -3,7 +3,7 @@ import { Code } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
-import 'prismjs/components/prism-xml';
+import 'prismjs/components/prism-xml.js'; // Caminho corrigido
 import 'prismjs/themes/prism.css'; // Ou um tema mais escuro se preferir
 
 interface XMLEditorProps {
@@ -72,6 +72,3 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
     </Card>
   );
 };
-
-// Adicionar estilos para numeração de linhas
-// Estes estilos devem ser adicionados em src/index.css ou um arquivo CSS global
