@@ -8,6 +8,7 @@ import JSZip from "jszip";
 import { fixXMLStructure, standardizeTipoAtendimento, standardizeCBOS, extractGuides, addEpilogo } from "@/utils/xmlProcessor";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
 import { FaturistaNameModal } from "@/components/FaturistaNameModal";
+import { loadFaturistaName } from "@/utils/localStorage"; // Importar loadFaturistaName
 
 interface ProcessingLog {
   action: string;
@@ -137,7 +138,13 @@ const AutomaticMode = () => {
       setProcessedContentForDownload(finalContent); // Store XML string
       setCurrentGuides(guides);
       setCurrentTotalValue(totalValue);
-      setShowFaturistaNameModal(true);
+      
+      const storedFaturistaName = loadFaturistaName();
+      if (storedFaturistaName) {
+        handleConfirmFaturistaName(storedFaturistaName);
+      } else {
+        setShowFaturistaNameModal(true);
+      }
     };
 
     reader.readAsText(file);
@@ -161,7 +168,7 @@ const AutomaticMode = () => {
         const finalContent = addEpilogo(result.content); // Add epilogo here for each XML in zip
         outputZip.file(filename, finalContent);
         totalFiles++;
-        totalChanges += result.totalChanges;
+        totalChanges += result.changes;
         
         const fileGuides = extractGuides(finalContent);
         allGuides.push(...fileGuides);
@@ -176,7 +183,13 @@ const AutomaticMode = () => {
     setProcessedContentForDownload(zipBlob); // Store ZIP Blob
     setCurrentGuides(allGuides);
     setCurrentTotalValue(totalValue);
-    setShowFaturistaNameModal(true);
+    
+    const storedFaturistaName = loadFaturistaName();
+    if (storedFaturistaName) {
+      handleConfirmFaturistaName(storedFaturistaName);
+    } else {
+      setShowFaturistaNameModal(true);
+    }
   };
 
   const handleConfirmFaturistaName = async (faturistaName: string) => {

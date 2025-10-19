@@ -14,7 +14,7 @@ import { TriagemTable } from "@/components/TriagemTable";
 import { AssistenteTISS } from "@/components/AssistenteTISS";
 import { ArrowLeft, HelpCircle, Download, Undo2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { loadConfig } from "@/utils/localStorage";
+import { loadConfig, loadFaturistaName } from "@/utils/localStorage"; // Importar loadFaturistaName
 import JSZip from "jszip";
 import {
   fixXMLStructure,
@@ -177,12 +177,23 @@ const ConvenioPanel = () => {
     const finalContent = addEpilogo(content);
     setXmlContent(finalContent);
     setDownloadContent(finalContent);
-    setShowFaturistaNameModal(true);
+    
+    const storedFaturistaName = loadFaturistaName();
+    if (storedFaturistaName) {
+      handleConfirmFaturistaName(storedFaturistaName);
+    } else {
+      setShowFaturistaNameModal(true);
+    }
   };
 
   const handleDownloadTrigger = () => {
     setDownloadContent(xmlContent);
-    setShowFaturistaNameModal(true);
+    const storedFaturistaName = loadFaturistaName();
+    if (storedFaturistaName) {
+      handleConfirmFaturistaName(storedFaturistaName);
+    } else {
+      setShowFaturistaNameModal(true);
+    }
   };
 
   const handleConfirmFaturistaName = async (faturistaName: string) => {
