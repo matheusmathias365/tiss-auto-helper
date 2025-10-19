@@ -187,7 +187,9 @@ const findTagValueRecursive = (obj: any, tagNames: string[]): string | undefined
   for (const tagName of tagNames) {
     if (obj[tagName] !== undefined) {
       const value = obj[tagName];
-      return typeof value === 'object' && '#text' in value ? value['#text'] : String(value);
+      const extractedValue = typeof value === 'object' && '#text' in value ? value['#text'] : String(value);
+      // console.log(`  [findTagValueRecursive] Found tag '${tagName}' with value: '${extractedValue}'`); // Keep for debugging if needed
+      return extractedValue;
     }
   }
 
@@ -238,13 +240,29 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       const numeroCarteira = findTagValueRecursive(guideObj, ['ans:numeroCarteira', 'numeroCarteira']) || 'N/A';
       const nomeProfissional = findTagValueRecursive(guideObj, ['ans:nomeProfissional', 'nomeProfissional']) || 'N/A';
       const dataExecucao = findTagValueRecursive(guideObj, ['ans:dataExecucao', 'dataExecucao']) || 'N/A';
-      // Garante que valorTotalGeral seja sempre um número válido, buscando em tags comuns
-      const valorTotalGeral = parseFloat(findTagValueRecursive(guideObj, ['ans:valorTotalGeral', 'valorTotalGeral', 'ans:valorTotal', 'valorTotal']) || '0.00') || 0;
+      
+      // More robust extraction for valorTotalGeral
+      const rawValorTotalGeral = findTagValueRecursive(guideObj, [
+        'ans:valorTotalGeral', 'valorTotalGeral', // Common TISS total value tags
+        'ans:valorTotal', 'valorTotal',           // Other common total value tags
+        'ans:valorServicos', 'valorServicos',     // Sometimes total services value
+        'ans:valorProcedimento', 'valorProcedimento', // Sometimes procedure value is the only value
+        'ans:valorUnitario', 'valorUnitario'      // Sometimes unit value is the only value
+      ]);
+      
+      let valorTotalGeral = 0;
+      if (rawValorTotalGeral) {
+        // Sanitize the string: replace comma with dot for decimal, remove non-numeric except dot
+        const sanitizedValue = rawValorTotalGeral.replace(',', '.').replace(/[^0-9.]/g, '');
+        valorTotalGeral = parseFloat(sanitizedValue) || 0;
+      }
 
       console.log('--- Extracted Guide Data ---');
       console.log('Guide Object:', guideObj);
       console.log('numeroGuiaPrestador:', numeroGuiaPrestador);
-      console.log('valorTotalGeral extracted:', valorTotalGeral);
+      console.log('rawValorTotalGeral found:', rawValorTotalGeral);
+      console.log('sanitizedValue:', sanitizedValue);
+      console.log('valorTotalGeral parsed:', valorTotalGeral);
       console.log('---------------------------');
 
       guides.push({
@@ -267,8 +285,18 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       const numeroGuiaPrestador = (guideContent.match(/<ans:numeroGuiaPrestador>(.*?)<\/ans:numeroGuiaPrestador>/) || [])[1] || 'N/A';
       const numeroCarteira = (guideContent.match(/<ans:numeroCarteira>(.*?)<\/ans:numeroCarteira>/) || [])[1] || 'N/A';
       const nomeProfissional = (guideContent.match(/<ans:nomeProfissional>(.*?)<\/ans:nomeProfissional>/) || [])[1] || 'N/A';
-      const valorTotalGeral = parseFloat((guideContent.match(/<ans:valorTotalGeral>(.*?)<\/ans:valorTotalGeral>/) || [])[1] || '0.00') || 0;
+      const rawValorTotalGeral = (guideContent.match(/<ans:valorTotalGeral>(.*?)<\/ans:valorTotalGeral>/) || [])[1] || 
+                                 (guideContent.match(/<valorTotalGeral>(.*?)<\/valorTotalGeral>/) || [])[1] ||
+                                 (guideContent.match(/<ans:valorTotal>(.*?)<\/ans:valorTotal>/) || [])[1] ||
+                                 (guideContent.match(/<valorTotal>(.*?)<\/valorTotal>/) || [])[1] ||
+                                 '0.00';
       const dataExecucao = (guideContent.match(/<ans:dataExecucao>(.*?)<\/ans:dataExecucao>/) || [])[1] || 'N/A';
+
+      let valorTotalGeral = 0;
+      if (rawValorTotalGeral) {
+        const sanitizedValue = rawValorTotalGeral.replace(',', '.').replace(/[^0-9.]/g, '');
+        valorTotalGeral = parseFloat(sanitizedValue) || 0;
+      }
 
       regexGuides.push({
         id: numeroGuiaPrestador,
