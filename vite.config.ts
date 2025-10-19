@@ -13,8 +13,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      // Adiciona um alias explícito para o componente prism-xml
-      "prismjs/components/prism-xml": path.resolve(__dirname, "node_modules/prismjs/components/prism-xml.js"),
+      // O alias para prismjs/components/prism-xml foi removido.
     },
   },
 }));

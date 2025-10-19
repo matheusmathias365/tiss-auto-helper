@@ -3,7 +3,7 @@ import { Code } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs';
-import 'prismjs/components/prism-xml'; // Caminho ajustado
+import 'prismjs/components/prism-languages/xml'; // Caminho padrão para componentes de linguagem
 import 'prismjs/themes/prism.css'; // Ou um tema mais escuro se preferir
 
 interface XMLEditorProps {
