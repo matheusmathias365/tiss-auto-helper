@@ -188,7 +188,6 @@ const findTagValueRecursive = (obj: any, tagNames: string[]): string | undefined
     if (obj[tagName] !== undefined) {
       const value = obj[tagName];
       const extractedValue = typeof value === 'object' && '#text' in value ? value['#text'] : String(value);
-      // console.log(`  [findTagValueRecursive] Found tag '${tagName}' with value: '${extractedValue}'`); // Keep for debugging if needed
       return extractedValue;
     }
   }
@@ -242,18 +241,41 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       const dataExecucao = findTagValueRecursive(guideObj, ['ans:dataExecucao', 'dataExecucao']) || 'N/A';
       
       // More robust extraction for valorTotalGeral
+      // Expanded list of potential value tags
       const rawValorTotalGeral = findTagValueRecursive(guideObj, [
-        'ans:valorTotalGeral', 'valorTotalGeral', // Common TISS total value tags
-        'ans:valorTotal', 'valorTotal',           // Other common total value tags
-        'ans:valorServicos', 'valorServicos',     // Sometimes total services value
-        'ans:valorProcedimento', 'valorProcedimento', // Sometimes procedure value is the only value
-        'ans:valorUnitario', 'valorUnitario'      // Sometimes unit value is the only value
+        'ans:valorTotalGeral', 'valorTotalGeral',
+        'ans:valorTotal', 'valorTotal',
+        'ans:valorServicos', 'valorServicos',
+        'ans:valorProcedimento', 'valorProcedimento',
+        'ans:valorUnitario', 'valorUnitario',
+        'ans:valorTotalHonorarios', 'valorTotalHonorarios', 
+        'ans:valorTotalDiarias', 'valorTotalDiarias',
+        'ans:valorTotalTaxas', 'valorTotalTaxas',
+        'ans:valorTotalMateriais', 'valorTotalMateriais',
+        'ans:valorTotalMedicamentos', 'valorTotalMedicamentos',
+        'ans:valorTotalGasMed', 'valorTotalGasMed',
+        'ans:valorTotalOutros', 'valorTotalOutros',
       ]);
       
       let valorTotalGeral = 0;
       if (rawValorTotalGeral) {
-        // Sanitize the string: replace comma with dot for decimal, remove non-numeric except dot
-        const sanitizedValue = rawValorTotalGeral.replace(',', '.').replace(/[^0-9.]/g, '');
+        // Improved sanitization:
+        // 1. Remove currency symbols (R$, $, etc.)
+        // 2. Replace comma with dot for decimal separator
+        // 3. Remove thousands separators (dots) if they are not decimal points
+        // 4. Keep only digits and one decimal point
+        let sanitizedValue = rawValorTotalGeral
+          .replace(/[R$€£¥]/g, '') // Remove common currency symbols
+          .replace(/\./g, '')     // Remove thousands separators (dots)
+          .replace(/,/g, '.');    // Replace comma with dot for decimal
+
+        // Ensure only one decimal point and valid numeric characters remain
+        const parts = sanitizedValue.split('.');
+        if (parts.length > 2) { // If there are multiple dots, assume only the last one is decimal
+          sanitizedValue = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+        }
+        sanitizedValue = sanitizedValue.replace(/[^0-9.]/g, ''); // Remove any remaining non-numeric characters except dot
+
         valorTotalGeral = parseFloat(sanitizedValue) || 0;
       }
 
@@ -261,7 +283,7 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       console.log('Guide Object:', guideObj);
       console.log('numeroGuiaPrestador:', numeroGuiaPrestador);
       console.log('rawValorTotalGeral found:', rawValorTotalGeral);
-      console.log('sanitizedValue:', sanitizedValue);
+      console.log('sanitizedValue:', sanitizedValue); // Log the sanitized value
       console.log('valorTotalGeral parsed:', valorTotalGeral);
       console.log('---------------------------');
 
@@ -285,6 +307,8 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       const numeroGuiaPrestador = (guideContent.match(/<ans:numeroGuiaPrestador>(.*?)<\/ans:numeroGuiaPrestador>/) || [])[1] || 'N/A';
       const numeroCarteira = (guideContent.match(/<ans:numeroCarteira>(.*?)<\/ans:numeroCarteira>/) || [])[1] || 'N/A';
       const nomeProfissional = (guideContent.match(/<ans:nomeProfissional>(.*?)<\/ans:nomeProfissional>/) || [])[1] || 'N/A';
+      
+      // Regex fallback for valorTotalGeral, also needs sanitization
       const rawValorTotalGeral = (guideContent.match(/<ans:valorTotalGeral>(.*?)<\/ans:valorTotalGeral>/) || [])[1] || 
                                  (guideContent.match(/<valorTotalGeral>(.*?)<\/valorTotalGeral>/) || [])[1] ||
                                  (guideContent.match(/<ans:valorTotal>(.*?)<\/ans:valorTotal>/) || [])[1] ||
@@ -294,7 +318,15 @@ export const extractGuides = (xmlContent: string): Guide[] => {
 
       let valorTotalGeral = 0;
       if (rawValorTotalGeral) {
-        const sanitizedValue = rawValorTotalGeral.replace(',', '.').replace(/[^0-9.]/g, '');
+        let sanitizedValue = rawValorTotalGeral
+          .replace(/[R$€£¥]/g, '')
+          .replace(/\./g, '')
+          .replace(/,/g, '.');
+        const parts = sanitizedValue.split('.');
+        if (parts.length > 2) {
+          sanitizedValue = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+        }
+        sanitizedValue = sanitizedValue.replace(/[^0-9.]/g, '');
         valorTotalGeral = parseFloat(sanitizedValue) || 0;
       }
 

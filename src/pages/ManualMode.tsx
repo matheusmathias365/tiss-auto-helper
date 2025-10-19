@@ -31,6 +31,7 @@ const ManualMode = () => {
   const [fileName, setFileName] = useState<string>("");
   const [history, setHistory] = useState<string[]>([]);
   const [guides, setGuides] = useState<Guide[]>([]);
+  const [originalTotalValue, setOriginalTotalValue] = useState<number>(0); // Estado para o valor total original
   const [selectedGuideId, setSelectedGuideId] = useState<string | undefined>();
   const [showFaturistaNameModal, setShowFaturistaNameModal] = useState(false);
 
@@ -42,6 +43,9 @@ const ManualMode = () => {
     
     const extractedGuides = extractGuides(content);
     setGuides(extractedGuides);
+    
+    const initialTotal = extractedGuides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
+    setOriginalTotalValue(initialTotal); // Define o valor total original aqui
     
     toast({
       title: "Arquivo carregado",
@@ -211,7 +215,7 @@ const ManualMode = () => {
       description: `Arquivo ${downloadName} baixado com sucesso.`,
     });
 
-    const totalValue = extractGuides(contentWithEpilogo).reduce((sum, guide) => sum + guide.valorTotalGeral, 0);
+    const totalValue = extractGuides(contentWithEpilogo).reduce((sum, g) => sum + g.valorTotalGeral, 0);
     openPrintableProtocol({
       fileName: fileName,
       guides: extractGuides(contentWithEpilogo),
@@ -223,6 +227,8 @@ const ManualMode = () => {
   const handleTagQuery = (tag: string) => {
     // Implementação do Assistente TISS
   };
+
+  const currentValue = guides.reduce((sum, g) => sum + g.valorTotalGeral, 0); // Calcula o valor atual dinamicamente
 
   return (
     <div className="min-h-screen bg-background">
@@ -275,6 +281,7 @@ const ManualMode = () => {
                       setFileName("");
                       setHistory([]);
                       setGuides([]);
+                      setOriginalTotalValue(0); // Resetar o valor original
                       setSelectedGuideId(undefined);
                     }}
                     variant="outline"
@@ -318,8 +325,8 @@ const ManualMode = () => {
 
               <div className="lg:col-span-8 space-y-6">
                 <ConferenciaPanel
-                  originalValue={originalContent ? extractGuides(originalContent).reduce((sum, g) => sum + g.valorTotalGeral, 0) : 0}
-                  currentValue={guides.reduce((sum, g) => sum + g.valorTotalGeral, 0)}
+                  originalValue={originalTotalValue} // Usar o estado de valor original
+                  currentValue={currentValue} // Usar o valor atual calculado dinamicamente
                 />
 
                 <TriagemTable
