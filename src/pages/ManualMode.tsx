@@ -368,7 +368,7 @@ const ManualMode = () => {
                   content={xmlContent}
                   onChange={handleXMLChange}
                   title="Editor de XML (Editável)"
-                  className="h-[500px]" 
+                  className="h-[400px]" 
                 />
 
                 {/* <ActivityLog logs={logs} /> */}
