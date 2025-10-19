@@ -259,23 +259,28 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       
       let valorTotalGeral = 0;
       if (rawValorTotalGeral) {
-        // Improved sanitization:
-        // 1. Remove currency symbols (R$, $, etc.)
-        // 2. Replace comma with dot for decimal separator
-        // 3. Remove thousands separators (dots) if they are not decimal points
-        // 4. Keep only digits and one decimal point
-        let sanitizedValue = rawValorTotalGeral
-          .replace(/[R$€£¥]/g, '') // Remove common currency symbols
-          .replace(/\./g, '')     // Remove thousands separators (dots)
-          .replace(/,/g, '.');    // Replace comma with dot for decimal
+        let sanitizedValue = rawValorTotalGeral.trim();
+        // 1. Remove currency symbols
+        sanitizedValue = sanitizedValue.replace(/[R$€£¥]/g, '');
 
-        // Ensure only one decimal point and valid numeric characters remain
-        const parts = sanitizedValue.split('.');
-        if (parts.length > 2) { // If there are multiple dots, assume only the last one is decimal
-          sanitizedValue = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+        // 2. Determine the decimal separator (last '.' or ',')
+        const lastDotIndex = sanitizedValue.lastIndexOf('.');
+        const lastCommaIndex = sanitizedValue.lastIndexOf(',');
+
+        if (lastCommaIndex > lastDotIndex) { // e.g., "1.234,56" -> comma is decimal
+          sanitizedValue = sanitizedValue.replace(/\./g, ''); // Remove thousands dots
+          sanitizedValue = sanitizedValue.replace(/,/g, '.'); // Replace decimal comma with dot
+        } else if (lastDotIndex > lastCommaIndex) { // e.g., "1,234.56" -> dot is decimal
+          sanitizedValue = sanitizedValue.replace(/,/g, ''); // Remove thousands commas
+          // Dot is already decimal, no change needed
+        } else { // No dot or comma, or only one type (e.g., "1234" or "1234.56" or "1234,56")
+          // If only comma, assume it's decimal
+          sanitizedValue = sanitizedValue.replace(/,/g, '.');
         }
-        sanitizedValue = sanitizedValue.replace(/[^0-9.]/g, ''); // Remove any remaining non-numeric characters except dot
-
+        
+        // Final cleanup: remove any remaining non-numeric characters except the decimal point
+        sanitizedValue = sanitizedValue.replace(/[^0-9.]/g, '');
+        
         valorTotalGeral = parseFloat(sanitizedValue) || 0;
       }
 
@@ -318,13 +323,18 @@ export const extractGuides = (xmlContent: string): Guide[] => {
 
       let valorTotalGeral = 0;
       if (rawValorTotalGeral) {
-        let sanitizedValue = rawValorTotalGeral
-          .replace(/[R$€£¥]/g, '')
-          .replace(/\./g, '')
-          .replace(/,/g, '.');
-        const parts = sanitizedValue.split('.');
-        if (parts.length > 2) {
-          sanitizedValue = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1];
+        let sanitizedValue = rawValorTotalGeral.trim();
+        sanitizedValue = sanitizedValue.replace(/[R$€£¥]/g, '');
+        const lastDotIndex = sanitizedValue.lastIndexOf('.');
+        const lastCommaIndex = sanitizedValue.lastIndexOf(',');
+
+        if (lastCommaIndex > lastDotIndex) {
+          sanitizedValue = sanitizedValue.replace(/\./g, '');
+          sanitizedValue = sanitizedValue.replace(/,/g, '.');
+        } else if (lastDotIndex > lastCommaIndex) {
+          sanitizedValue = sanitizedValue.replace(/,/g, '');
+        } else {
+          sanitizedValue = sanitizedValue.replace(/,/g, '.');
         }
         sanitizedValue = sanitizedValue.replace(/[^0-9.]/g, '');
         valorTotalGeral = parseFloat(sanitizedValue) || 0;
