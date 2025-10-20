@@ -24,8 +24,8 @@ import {
   deleteGuide,
   addEpilogo,
   Guide,
-  extractLotNumber, // Importar a nova função
-  parseAndBuildXml, // Importar a nova função
+  extractLotNumber,
+  parseAndBuildXml,
 } from "@/utils/xmlProcessor";
 import { CorrectionRule } from "@/types/profiles";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
@@ -137,14 +137,14 @@ const ConvenioPanel = () => {
   };
 
   const handleFileLoad = (content: string, name: string) => {
-    const formattedContent = parseAndBuildXml(content); // Formatar o XML ao carregar
-    setXmlContent(formattedContent);
-    setOriginalContent(formattedContent);
+    // Não formatar o XML ao carregar para manter o conteúdo original
+    setXmlContent(content);
+    setOriginalContent(content);
     setFileName(name);
-    setHistory([formattedContent]);
+    setHistory([content]); // Armazenar o conteúdo original no histórico
     setLogs([]);
     
-    const extractedGuides = extractGuides(formattedContent);
+    const extractedGuides = extractGuides(content); // Extrair guias do conteúdo original
     setGuides(extractedGuides);
     
     const totalOriginal = extractedGuides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
@@ -226,7 +226,6 @@ const ConvenioPanel = () => {
     setXmlContent(finalContent);
     setDownloadContent(finalContent);
     
-    // Recarregar guias após o processamento automático
     setGuides(extractGuides(finalContent));
 
     const storedFaturistaName = loadFaturistaName();
@@ -291,14 +290,14 @@ const ConvenioPanel = () => {
       description: `Arquivo ${downloadFileName} baixado com sucesso.`,
     });
 
-    const lotNumber = extractLotNumber(contentWithEpilogo); // Extrair número do lote
+    const lotNumber = extractLotNumber(contentWithEpilogo);
     openPrintableProtocol({
       fileName: fileName,
       guides: extractGuides(contentWithEpilogo),
       totalValue: extractGuides(contentWithEpilogo).reduce((sum, g) => sum + g.valorTotalGeral, 0),
       faturistaName: faturistaName,
-      convenioName: profile.name, // Nome do perfil como nome do convênio
-      lotNumber: lotNumber, // Passar o número do lote
+      convenioName: profile.name,
+      lotNumber: lotNumber,
     });
 
     setDownloadContent("");
@@ -308,7 +307,6 @@ const ConvenioPanel = () => {
     const result = fixXMLStructure(xmlContent);
     saveToHistory(xmlContent);
     setXmlContent(result.content);
-    // Recarregar guias após a modificação do XML
     setGuides(extractGuides(result.content));
     addLog(
       "Estrutura corrigida",
@@ -325,7 +323,6 @@ const ConvenioPanel = () => {
     const result = standardizeTipoAtendimento(xmlContent);
     saveToHistory(xmlContent);
     setXmlContent(result.content);
-    // Recarregar guias após a modificação do XML
     setGuides(extractGuides(result.content));
     addLog(
       "tipoAtendimento padronizado",
@@ -342,7 +339,6 @@ const ConvenioPanel = () => {
     const result = standardizeCBOS(xmlContent);
     saveToHistory(xmlContent);
     setXmlContent(result.content);
-    // Recarregar guias após a modificação do XML
     setGuides(extractGuides(result.content));
     addLog(
       "CBOS padronizado",
@@ -358,14 +354,13 @@ const ConvenioPanel = () => {
   const handleDeleteGuide = (guideId: string) => {
     saveToHistory(xmlContent);
     let newContent = deleteGuide(xmlContent, guideId);
-    newContent = addEpilogo(newContent); // Recalcula e adiciona o epílogo com o novo hash
+    newContent = addEpilogo(newContent);
     setXmlContent(newContent);
     
-    // CORRIGIDO: Recarregar guias do novo conteúdo XML
     const updatedGuides = extractGuides(newContent);
     setGuides(updatedGuides);
     
-    const deletedGuide = guides.find(g => g.id === guideId); // Ainda usa o ID antigo para o toast
+    const deletedGuide = guides.find(g => g.id === guideId);
     addLog("Guia excluída", "info", `Guia ${deletedGuide?.numeroGuiaPrestador}. Hash recalculado.`);
     toast({
       title: "Guia excluída",
@@ -391,7 +386,6 @@ const ConvenioPanel = () => {
   const handleFindReplace = (newContent: string, changes: number) => {
     saveToHistory(xmlContent);
     setXmlContent(newContent);
-    // Recarregar guias após a modificação do XML
     setGuides(extractGuides(newContent));
     addLog("Substituição realizada", "success", `${changes} substituições`);
     toast({
@@ -404,7 +398,6 @@ const ConvenioPanel = () => {
     saveToHistory(xmlContent);
     const newContent = addEpilogo(xmlContent);
     setXmlContent(newContent);
-    // Recarregar guias após a modificação do XML (se o hash afetar algo, embora não deva)
     setGuides(extractGuides(newContent));
     addLog("Hash corrigido", "success", "Hash MD5 recalculado");
     toast({

@@ -17,8 +17,8 @@ import {
   deleteGuide,
   addEpilogo,
   Guide,
-  extractLotNumber, // Importar a nova função
-  parseAndBuildXml, // Importar a nova função
+  extractLotNumber,
+  parseAndBuildXml,
 } from "@/utils/xmlProcessor";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
 import { FaturistaNameModal } from "@/components/FaturistaNameModal";
@@ -33,22 +33,22 @@ const ManualMode = () => {
   const [fileName, setFileName] = useState<string>("");
   const [history, setHistory] = useState<string[]>([]);
   const [guides, setGuides] = useState<Guide[]>([]);
-  const [originalTotalValue, setOriginalTotalValue] = useState<number>(0); // Estado para o valor total original
+  const [originalTotalValue, setOriginalTotalValue] = useState<number>(0);
   const [selectedGuideId, setSelectedGuideId] = useState<string | undefined>();
   const [showFaturistaNameModal, setShowFaturistaNameModal] = useState(false);
 
   const handleFileLoad = (content: string, name: string) => {
-    const formattedContent = parseAndBuildXml(content); // Formatar o XML ao carregar
-    setXmlContent(formattedContent);
-    setOriginalContent(formattedContent);
+    // Não formatar o XML ao carregar para manter o conteúdo original
+    setXmlContent(content);
+    setOriginalContent(content);
     setFileName(name);
-    setHistory([formattedContent]);
+    setHistory([content]); // Armazenar o conteúdo original no histórico
     
-    const extractedGuides = extractGuides(formattedContent);
+    const extractedGuides = extractGuides(content); // Extrair guias do conteúdo original
     setGuides(extractedGuides);
     
     const initialTotal = extractedGuides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
-    setOriginalTotalValue(initialTotal); // Define o valor total original aqui
+    setOriginalTotalValue(initialTotal);
     
     toast({
       title: "Arquivo carregado",
@@ -65,7 +65,6 @@ const ManualMode = () => {
     saveToHistory(xmlContent);
     setXmlContent(result.content);
     
-    // Recarregar guias após a modificação do XML
     setGuides(extractGuides(result.content));
 
     if (result.changes > 0) {
@@ -81,7 +80,6 @@ const ManualMode = () => {
     saveToHistory(xmlContent);
     setXmlContent(result.content);
 
-    // Recarregar guias após a modificação do XML
     setGuides(extractGuides(result.content));
     
     if (result.changes > 0) {
@@ -97,7 +95,6 @@ const ManualMode = () => {
     saveToHistory(xmlContent);
     setXmlContent(result.content);
 
-    // Recarregar guias após a modificação do XML
     setGuides(extractGuides(result.content));
     
     if (result.changes > 0) {
@@ -111,14 +108,13 @@ const ManualMode = () => {
   const handleDeleteGuide = (guideId: string) => {
     saveToHistory(xmlContent);
     let newContent = deleteGuide(xmlContent, guideId);
-    newContent = addEpilogo(newContent); // Recalcula e adiciona o epílogo com o novo hash
+    newContent = addEpilogo(newContent);
     setXmlContent(newContent);
     
-    // CORRIGIDO: Recarregar guias do novo conteúdo XML
     const updatedGuides = extractGuides(newContent);
     setGuides(updatedGuides);
     
-    const deletedGuide = guides.find(g => g.id === guideId); // Ainda usa o ID antigo para o toast
+    const deletedGuide = guides.find(g => g.id === guideId);
     
     toast({
       title: "Guia excluída",
@@ -145,7 +141,6 @@ const ManualMode = () => {
   const handleFindReplace = (newContent: string, changes: number) => {
     saveToHistory(xmlContent);
     setXmlContent(newContent);
-    // Recarregar guias após a modificação do XML
     setGuides(extractGuides(newContent));
   };
 
@@ -154,7 +149,6 @@ const ManualMode = () => {
     const newContent = addEpilogo(xmlContent);
     setXmlContent(newContent);
     
-    // Recarregar guias após a modificação do XML (se o hash afetar algo, embora não deva)
     setGuides(extractGuides(newContent));
 
     toast({
@@ -219,14 +213,14 @@ const ManualMode = () => {
     });
 
     const totalValue = extractGuides(contentWithEpilogo).reduce((sum, g) => sum + g.valorTotalGeral, 0);
-    const lotNumber = extractLotNumber(contentWithEpilogo); // Extrair número do lote
+    const lotNumber = extractLotNumber(contentWithEpilogo);
     openPrintableProtocol({
       fileName: fileName,
       guides: extractGuides(contentWithEpilogo),
       totalValue: totalValue,
       faturistaName: faturistaName,
-      convenioName: "Modo Manual", // Nome genérico para o modo manual
-      lotNumber: lotNumber, // Passar o número do lote
+      convenioName: "Modo Manual",
+      lotNumber: lotNumber,
     });
   };
 
@@ -234,7 +228,7 @@ const ManualMode = () => {
     // Implementação do Assistente TISS
   };
 
-  const currentValue = guides.reduce((sum, g) => sum + g.valorTotalGeral, 0); // Calcula o valor atual dinamicamente
+  const currentValue = guides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -287,7 +281,7 @@ const ManualMode = () => {
                       setFileName("");
                       setHistory([]);
                       setGuides([]);
-                      setOriginalTotalValue(0); // Resetar o valor original
+                      setOriginalTotalValue(0);
                       setSelectedGuideId(undefined);
                     }}
                     variant="outline"
@@ -331,8 +325,8 @@ const ManualMode = () => {
 
               <div className="lg:col-span-8 space-y-6">
                 <ConferenciaPanel
-                  originalValue={originalTotalValue} // Usar o estado de valor original
-                  currentValue={currentValue} // Usar o valor atual calculado dinamicamente
+                  originalValue={originalTotalValue}
+                  currentValue={currentValue}
                 />
 
                 <TriagemTable
