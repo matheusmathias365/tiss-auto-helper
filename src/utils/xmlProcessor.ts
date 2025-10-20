@@ -19,10 +19,10 @@ export interface Guide {
 // Safe XML parser configuration to prevent XXE and entity expansion attacks
 const parserOptions = {
   ignoreAttributes: false,
-  attributeNamePrefix: "",
+  attributeNamePrefix: "@_", // Use um prefixo para atributos quando preserveOrder é true
   textNodeName: "#text",
-  ignoreDeclaration: true, // Changed to true to let builder handle it or assume it's part of content
-  preserveOrder: true,    // Changed to true to preserve original XML structure
+  ignoreDeclaration: false, // Definido como false para que o parser capture a declaração XML
+  preserveOrder: true,    // Mantido como true para preservar a ordem original da estrutura XML
   parseTagValue: false,
   trimValues: false,
   processEntities: false,
@@ -39,22 +39,71 @@ const parserOptions = {
 
 const builderOptions = {
   ignoreAttributes: false,
-  attributeNamePrefix: "",
+  attributeNamePrefix: "@_", // Corresponde ao prefixo do parser
   textNodeName: "#text",
   format: true,
   indentBy: "  ",
   processEntities: false,
+  // Inclui explicitamente a declaração XML
+  declaration: {
+    include: true,
+    attributes: {
+      version: "1.0",
+      encoding: "ISO-8859-1"
+    }
+  },
 };
 
 export const parseAndBuildXml = (xmlContent: string): string => {
   try {
     const parser = new XMLParser(parserOptions);
     const builder = new XMLBuilder(builderOptions);
-    const xmlObj = parser.parse(xmlContent);
+    let xmlObj = parser.parse(xmlContent);
+
+    // --- Correção manual para atributos de namespace se eles forem parseados como elementos ---
+    // Isso é um workaround se o fast-xml-parser não os coloca corretamente como atributos
+    // quando preserveOrder é true e eles estão inicialmente malformados na entrada.
+    // O exemplo do usuário mostra-os como elementos *dentro* de ans:mensagemTISS, o que está incorreto.
+    // Precisamos encontrá-los e movê-los para os atributos do elemento raiz.
+
+    let rootElementNode: any = null;
+    if (Array.isArray(xmlObj) && xmlObj.length > 0) {
+      rootElementNode = xmlObj.find(node => Object.keys(node)[0] === 'ans:mensagemTISS');
+    }
+
+    if (rootElementNode && rootElementNode['ans:mensagemTISS'] && Array.isArray(rootElementNode['ans:mensagemTISS'])) {
+      const rootChildren = rootElementNode['ans:mensagemTISS'];
+      const newRootChildren: any[] = [];
+      const namespaceAttrs: { [key: string]: string } = {};
+
+      for (let i = 0; i < rootChildren.length; i++) {
+        const child = rootChildren[i];
+        const childKey = Object.keys(child)[0];
+
+        // Identifica as tags de namespace e schemaLocation que estão malformadas como elementos
+        if (childKey === 'xmlns:xsi' || childKey === 'xmlns:ans' || childKey === 'xsi:schemaLocation') {
+          const attrValue = child[childKey]['#text'];
+          if (attrValue) {
+            // Converte para o formato de atributo para o builder: @_{attributeName}
+            namespaceAttrs[`@_${childKey}`] = attrValue;
+          }
+        } else {
+          newRootChildren.push(child);
+        }
+      }
+
+      // Aplica os atributos de namespace extraídos ao elemento raiz
+      if (Object.keys(namespaceAttrs).length > 0) {
+        Object.assign(rootElementNode, namespaceAttrs);
+        rootElementNode['ans:mensagemTISS'] = newRootChildren; // Atualiza os filhos após remover os elementos de namespace
+      }
+    }
+    // --- Fim da correção manual ---
+
     return builder.build(xmlObj);
   } catch (error) {
     console.error("Error parsing and rebuilding XML for formatting:", error);
-    return xmlContent; // Return original content on error
+    return xmlContent; // Retorna o conteúdo original em caso de erro
   }
 };
 
