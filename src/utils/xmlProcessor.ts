@@ -272,25 +272,11 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       let valorTotalGeral = 0;
       if (rawValorTotalGeral) {
         let sanitizedValue = rawValorTotalGeral.trim();
-        // 1. Remove currency symbols
-        sanitizedValue = sanitizedValue.replace(/[R$€£¥]/g, '');
-
-        // 2. Determine the decimal separator (last '.' or ',')
-        const lastDotIndex = sanitizedValue.lastIndexOf('.');
-        const lastCommaIndex = sanitizedValue.lastIndexOf(',');
-
-        if (lastCommaIndex > lastDotIndex) { // e.g., "1.234,56" -> comma is decimal
-          sanitizedValue = sanitizedValue.replace(/\./g, ''); // Remove thousands dots
-          sanitizedValue = sanitizedValue.replace(/,/g, '.'); // Replace decimal comma with dot
-        } else if (lastDotIndex > lastCommaIndex) { // e.g., "1,234.56" -> dot is decimal
-          sanitizedValue = sanitizedValue.replace(/,/g, ''); // Remove thousands commas
-          // Dot is already decimal, no change needed
-        } else { // No dot or comma, or only one type (e.g., "1234" or "1234.56" or "1234,56")
-          // If only comma, assume it's decimal
-          sanitizedValue = sanitizedValue.replace(/,/g, '.');
-        }
-        
-        // Final cleanup: remove any remaining non-numeric characters except the decimal point
+        // Remove todos os pontos (separadores de milhares)
+        sanitizedValue = sanitizedValue.replace(/\./g, '');
+        // Substitui a vírgula (separador decimal) por ponto
+        sanitizedValue = sanitizedValue.replace(/,/g, '.');
+        // Remove quaisquer outros caracteres não numéricos, exceto o ponto decimal
         sanitizedValue = sanitizedValue.replace(/[^0-9.]/g, '');
         
         valorTotalGeral = parseFloat(sanitizedValue) || 0;
@@ -336,18 +322,8 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       let valorTotalGeral = 0;
       if (rawValorTotalGeral) {
         let sanitizedValue = rawValorTotalGeral.trim();
-        sanitizedValue = sanitizedValue.replace(/[R$€£¥]/g, '');
-        const lastDotIndex = sanitizedValue.lastIndexOf('.');
-        const lastCommaIndex = sanitizedValue.lastIndexOf(',');
-
-        if (lastCommaIndex > lastDotIndex) {
-          sanitizedValue = sanitizedValue.replace(/\./g, '');
-          sanitizedValue = sanitizedValue.replace(/,/g, '.');
-        } else if (lastDotIndex > lastCommaIndex) {
-          sanitizedValue = sanitizedValue.replace(/,/g, '');
-        } else {
-          sanitizedValue = sanitizedValue.replace(/,/g, '.');
-        }
+        sanitizedValue = sanitizedValue.replace(/\./g, '');
+        sanitizedValue = sanitizedValue.replace(/,/g, '.');
         sanitizedValue = sanitizedValue.replace(/[^0-9.]/g, '');
         valorTotalGeral = parseFloat(sanitizedValue) || 0;
       }
