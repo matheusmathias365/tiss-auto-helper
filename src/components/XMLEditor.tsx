@@ -2,10 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Code } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Editor from 'react-simple-code-editor';
-import { highlight, languages } from 'prismjs';
-import 'prismjs/prism.js'; // Importa o core do Prism.js primeiro
-import 'prismjs/components/prism-xml.js'; // Em seguida, importa o componente de linguagem XML
-import 'prismjs/themes/prism.css'; // Ou um tema mais escuro se preferir
+// Removidas as importações do Prism.js
 
 interface XMLEditorProps {
   content: string;
@@ -33,17 +30,6 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
     }
   };
 
-  const highlightWithLineNumbers = (code: string) => {
-    // Garante que languages.xml esteja disponível antes de usá-lo
-    if (!languages.xml) {
-      console.warn("Prism.js XML language not loaded. Highlighting might not work correctly.");
-      return code; // Retorna o código original se a linguagem não for carregada
-    }
-    const highlightedCode = highlight(code, languages.xml, 'xml');
-    const lines = highlightedCode.split('\n');
-    return lines.map((line, i) => `<span class="editor-line-number">${i + 1}</span>${line}`).join('\n');
-  };
-
   return (
     <Card>
       <CardHeader>
@@ -57,7 +43,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
           <Editor
             value={content}
             onValueChange={onChange}
-            highlight={highlightWithLineNumbers}
+            highlight={(code) => code} // Revertido para destaque simples
             padding={10}
             textareaId="xml-editor-textarea"
             className={cn("font-mono text-xs resize-none h-[1300px] bg-muted/30")}
