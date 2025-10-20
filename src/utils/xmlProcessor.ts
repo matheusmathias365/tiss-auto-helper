@@ -19,7 +19,7 @@ export interface Guide {
 // Safe XML parser configuration to prevent XXE and entity expansion attacks
 const parserOptions = {
   ignoreAttributes: false,
-  attributeNamePrefix: "@_",
+  attributeNamePrefix: "", // Alterado para string vazia para remover o prefixo '@_'
   textNodeName: "#text",
   ignoreDeclaration: false,
   preserveOrder: false,
@@ -39,7 +39,7 @@ const parserOptions = {
 
 const builderOptions = {
   ignoreAttributes: false,
-  attributeNamePrefix: "@_",
+  attributeNamePrefix: "", // Alterado para string vazia para remover o prefixo '@_'
   textNodeName: "#text",
   format: true,
   indentBy: "  ",
