@@ -7,8 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"; // Importar ScrollArea
 
 // Importar Prism.js e seus componentes para destaque de sintaxe XML
 import Prism from 'prismjs';
-import 'prismjs/components/prism-markup'; // Corrigido: removido .js
-import 'prismjs/components/prism-xml';   // Corrigido: removido .js
+import 'prismjs/components/prism-markup'; // Para estrutura XML/HTML (inclui XML)
+// import 'prismjs/components/prism-xml';   // Removido: Esta importação estava causando o erro
 import 'prismjs/themes/prism.css'; // Tema padrão do Prism para cores básicas
 
 interface XMLEditorProps {
@@ -52,7 +52,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
               highlight={(code) => Prism.highlight(code, Prism.languages.xml, 'xml')} // Usando Prism para destaque de sintaxe XML
               padding={10}
               textareaId="xml-editor-textarea"
-              className={cn("font-mono text-xs resize-none bg-muted/30")} // Removido 'h-[1300px]' e 'text-foreground' daqui
+              className={cn("font-mono text-xs resize-none bg-muted/30")}
               style={{
                 fontFamily: '"Fira code", "Fira Mono", monospace',
                 fontSize: 12,
