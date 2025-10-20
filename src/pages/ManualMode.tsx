@@ -18,7 +18,7 @@ import {
   addEpilogo,
   Guide,
   extractLotNumber,
-  parseAndBuildXml,
+  parseAndBuildXml, // Importar a função de formatação
 } from "@/utils/xmlProcessor";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
 import { FaturistaNameModal } from "@/components/FaturistaNameModal";
@@ -38,13 +38,13 @@ const ManualMode = () => {
   const [showFaturistaNameModal, setShowFaturistaNameModal] = useState(false);
 
   const handleFileLoad = (content: string, name: string) => {
-    // Não formatar o XML ao carregar para manter o conteúdo original
-    setXmlContent(content);
-    setOriginalContent(content);
+    const formattedContent = parseAndBuildXml(content); // Formatar ao carregar
+    setXmlContent(formattedContent);
+    setOriginalContent(formattedContent);
     setFileName(name);
-    setHistory([content]); // Armazenar o conteúdo original no histórico
+    setHistory([formattedContent]); // Armazenar o conteúdo original formatado no histórico
     
-    const extractedGuides = extractGuides(content); // Extrair guias do conteúdo original
+    const extractedGuides = extractGuides(formattedContent); // Extrair guias do conteúdo formatado
     setGuides(extractedGuides);
     
     const initialTotal = extractedGuides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
@@ -61,11 +61,12 @@ const ManualMode = () => {
   };
 
   const handleFixStructure = () => {
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const result = fixXMLStructure(xmlContent);
-    saveToHistory(xmlContent);
-    setXmlContent(result.content);
+    const formattedResult = parseAndBuildXml(result.content); // Formatar após a correção
+    setXmlContent(formattedResult);
     
-    setGuides(extractGuides(result.content));
+    setGuides(extractGuides(formattedResult));
 
     if (result.changes > 0) {
       toast({
@@ -76,11 +77,12 @@ const ManualMode = () => {
   };
 
   const handleStandardizeTipoAtendimento = () => {
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const result = standardizeTipoAtendimento(xmlContent);
-    saveToHistory(xmlContent);
-    setXmlContent(result.content);
+    const formattedResult = parseAndBuildXml(result.content); // Formatar após a padronização
+    setXmlContent(formattedResult);
 
-    setGuides(extractGuides(result.content));
+    setGuides(extractGuides(formattedResult));
     
     if (result.changes > 0) {
       toast({
@@ -91,11 +93,12 @@ const ManualMode = () => {
   };
 
   const handleStandardizeCBOS = () => {
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const result = standardizeCBOS(xmlContent);
-    saveToHistory(xmlContent);
-    setXmlContent(result.content);
+    const formattedResult = parseAndBuildXml(result.content); // Formatar após a padronização
+    setXmlContent(formattedResult);
 
-    setGuides(extractGuides(result.content));
+    setGuides(extractGuides(formattedResult));
     
     if (result.changes > 0) {
       toast({
@@ -106,12 +109,13 @@ const ManualMode = () => {
   };
 
   const handleDeleteGuide = (guideId: string) => {
-    saveToHistory(xmlContent);
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     let newContent = deleteGuide(xmlContent, guideId);
     newContent = addEpilogo(newContent);
-    setXmlContent(newContent);
+    const formattedContent = parseAndBuildXml(newContent); // Formatar após exclusão e epílogo
+    setXmlContent(formattedContent);
     
-    const updatedGuides = extractGuides(newContent);
+    const updatedGuides = extractGuides(formattedContent);
     setGuides(updatedGuides);
     
     const deletedGuide = guides.find(g => g.id === guideId);
@@ -139,17 +143,19 @@ const ManualMode = () => {
   };
 
   const handleFindReplace = (newContent: string, changes: number) => {
-    saveToHistory(xmlContent);
-    setXmlContent(newContent);
-    setGuides(extractGuides(newContent));
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    const formattedContent = parseAndBuildXml(newContent); // Formatar após substituição
+    setXmlContent(formattedContent);
+    setGuides(extractGuides(formattedContent));
   };
 
   const handleFixHash = () => {
-    saveToHistory(xmlContent);
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const newContent = addEpilogo(xmlContent);
-    setXmlContent(newContent);
+    const formattedContent = parseAndBuildXml(newContent); // Formatar após correção do hash
+    setXmlContent(formattedContent);
     
-    setGuides(extractGuides(newContent));
+    setGuides(extractGuides(formattedContent));
 
     toast({
       title: "Hash corrigido",
@@ -158,18 +164,20 @@ const ManualMode = () => {
   };
 
   const handleXMLChange = (newContent: string) => {
+    // Não formatar em cada keystroke para evitar interrupções na digitação
     setXmlContent(newContent);
-    const newGuides = extractGuides(newContent);
+    const newGuides = extractGuides(newContent); // Extrair guias do conteúdo não formatado para manter responsividade
     setGuides(newGuides);
   };
 
   const handleUndo = () => {
     if (history.length > 1) {
       const previousContent = history[history.length - 2];
-      setXmlContent(previousContent);
+      const formattedContent = parseAndBuildXml(previousContent); // Formatar ao desfazer
+      setXmlContent(formattedContent);
       setHistory((prev) => prev.slice(0, -1));
       
-      const newGuides = extractGuides(previousContent);
+      const newGuides = extractGuides(formattedContent);
       setGuides(newGuides);
       
       toast({
@@ -187,10 +195,11 @@ const ManualMode = () => {
     if (!xmlContent || !fileName) return;
     
     const contentWithEpilogo = addEpilogo(xmlContent);
+    const finalFormattedContent = parseAndBuildXml(contentWithEpilogo); // Formatar o conteúdo final para download
     
     const zip = new JSZip();
     const xmlFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
-    zip.file(xmlFileName, contentWithEpilogo);
+    zip.file(xmlFileName, finalFormattedContent); // Usar conteúdo formatado
     
     const zipBlob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(zipBlob);
@@ -212,11 +221,11 @@ const ManualMode = () => {
       description: `Arquivo ${downloadName} baixado com sucesso.`,
     });
 
-    const totalValue = extractGuides(contentWithEpilogo).reduce((sum, g) => sum + g.valorTotalGeral, 0);
-    const lotNumber = extractLotNumber(contentWithEpilogo);
+    const totalValue = extractGuides(finalFormattedContent).reduce((sum, g) => sum + g.valorTotalGeral, 0);
+    const lotNumber = extractLotNumber(finalFormattedContent);
     openPrintableProtocol({
       fileName: fileName,
-      guides: extractGuides(contentWithEpilogo),
+      guides: extractGuides(finalFormattedContent),
       totalValue: totalValue,
       faturistaName: faturistaName,
       convenioName: "Modo Manual",

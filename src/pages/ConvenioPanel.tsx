@@ -25,7 +25,7 @@ import {
   addEpilogo,
   Guide,
   extractLotNumber,
-  parseAndBuildXml,
+  parseAndBuildXml, // Importar a função de formatação
 } from "@/utils/xmlProcessor";
 import { CorrectionRule } from "@/types/profiles";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
@@ -137,14 +137,14 @@ const ConvenioPanel = () => {
   };
 
   const handleFileLoad = (content: string, name: string) => {
-    // Não formatar o XML ao carregar para manter o conteúdo original
-    setXmlContent(content);
-    setOriginalContent(content);
+    const formattedContent = parseAndBuildXml(content); // Formatar ao carregar
+    setXmlContent(formattedContent);
+    setOriginalContent(formattedContent);
     setFileName(name);
-    setHistory([content]); // Armazenar o conteúdo original no histórico
+    setHistory([formattedContent]); // Armazenar o conteúdo original formatado no histórico
     setLogs([]);
     
-    const extractedGuides = extractGuides(content); // Extrair guias do conteúdo original
+    const extractedGuides = extractGuides(formattedContent); // Extrair guias do conteúdo formatado
     setGuides(extractedGuides);
     
     const totalOriginal = extractedGuides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
@@ -167,7 +167,7 @@ const ConvenioPanel = () => {
     saveToHistory(content);
 
     const structureResult = fixXMLStructure(content);
-    content = structureResult.content;
+    content = parseAndBuildXml(structureResult.content); // Formatar após correção de estrutura
     if (structureResult.changes > 0) {
       addLog("Estrutura corrigida", "success", `${structureResult.changes} correções`);
       toast({
@@ -183,7 +183,7 @@ const ConvenioPanel = () => {
     }
 
     const tipoResult = standardizeTipoAtendimento(content);
-    content = tipoResult.content;
+    content = parseAndBuildXml(tipoResult.content); // Formatar após padronização
     if (tipoResult.changes > 0) {
       addLog("tipoAtendimento padronizado", "success", `${tipoResult.changes} campos`);
       toast({
@@ -199,7 +199,7 @@ const ConvenioPanel = () => {
     }
 
     const cbosResult = standardizeCBOS(content);
-    content = cbosResult.content;
+    content = parseAndBuildXml(cbosResult.content); // Formatar após padronização
     if (cbosResult.changes > 0) {
       addLog("CBOS padronizado", "success", `${cbosResult.changes} campos`);
       toast({
@@ -215,7 +215,7 @@ const ConvenioPanel = () => {
     }
 
     const customResult = applyCustomRules(content);
-    content = customResult.content;
+    content = parseAndBuildXml(customResult.content); // Formatar após regras personalizadas
     if (customResult.changes > 0) {
       addLog("Regras personalizadas aplicadas", "success", `${customResult.changes} alterações`);
     } else {
@@ -223,10 +223,11 @@ const ConvenioPanel = () => {
     }
 
     const finalContent = addEpilogo(content);
-    setXmlContent(finalContent);
-    setDownloadContent(finalContent);
+    const formattedFinalContent = parseAndBuildXml(finalContent); // Formatar o conteúdo final
+    setXmlContent(formattedFinalContent);
+    setDownloadContent(formattedFinalContent);
     
-    setGuides(extractGuides(finalContent));
+    setGuides(extractGuides(formattedFinalContent));
 
     const storedFaturistaName = loadFaturistaName();
     if (storedFaturistaName) {
@@ -237,7 +238,7 @@ const ConvenioPanel = () => {
   };
 
   const handleDownloadTrigger = () => {
-    setDownloadContent(xmlContent);
+    setDownloadContent(parseAndBuildXml(xmlContent)); // Formatar o conteúdo atual para download
     const storedFaturistaName = loadFaturistaName();
     if (storedFaturistaName) {
       handleConfirmFaturistaName(storedFaturistaName);
@@ -250,6 +251,7 @@ const ConvenioPanel = () => {
     if (!downloadContent || !fileName) return;
     
     const contentWithEpilogo = addEpilogo(downloadContent);
+    const finalFormattedContent = parseAndBuildXml(contentWithEpilogo); // Formatar o conteúdo final para download
     
     let finalDownloadBlob: Blob | null = null;
     let downloadFileName = fileName;
@@ -257,13 +259,13 @@ const ConvenioPanel = () => {
     if (profile.outputFormat === 'zip') {
       const zip = new JSZip();
       const xmlFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
-      zip.file(xmlFileName, contentWithEpilogo);
+      zip.file(xmlFileName, finalFormattedContent); // Usar conteúdo formatado
       finalDownloadBlob = await zip.generateAsync({ type: "blob" });
       downloadFileName = fileName.endsWith('.xml') 
         ? fileName.replace('.xml', '.zip')
         : `${fileName}.zip`;
     } else {
-      finalDownloadBlob = new Blob([contentWithEpilogo], { type: 'application/xml' });
+      finalDownloadBlob = new Blob([finalFormattedContent], { type: 'application/xml' }); // Usar conteúdo formatado
       downloadFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
     }
 
@@ -290,11 +292,11 @@ const ConvenioPanel = () => {
       description: `Arquivo ${downloadFileName} baixado com sucesso.`,
     });
 
-    const lotNumber = extractLotNumber(contentWithEpilogo);
+    const lotNumber = extractLotNumber(finalFormattedContent);
     openPrintableProtocol({
       fileName: fileName,
-      guides: extractGuides(contentWithEpilogo),
-      totalValue: extractGuides(contentWithEpilogo).reduce((sum, g) => sum + g.valorTotalGeral, 0),
+      guides: extractGuides(finalFormattedContent),
+      totalValue: extractGuides(finalFormattedContent).reduce((sum, g) => sum + g.valorTotalGeral, 0),
       faturistaName: faturistaName,
       convenioName: profile.name,
       lotNumber: lotNumber,
@@ -304,10 +306,11 @@ const ConvenioPanel = () => {
   };
 
   const handleFixStructure = () => {
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const result = fixXMLStructure(xmlContent);
-    saveToHistory(xmlContent);
-    setXmlContent(result.content);
-    setGuides(extractGuides(result.content));
+    const formattedResult = parseAndBuildXml(result.content); // Formatar após a correção
+    setXmlContent(formattedResult);
+    setGuides(extractGuides(formattedResult));
     addLog(
       "Estrutura corrigida",
       result.changes > 0 ? "success" : "warning",
@@ -320,10 +323,11 @@ const ConvenioPanel = () => {
   };
 
   const handleStandardizeTipoAtendimento = () => {
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const result = standardizeTipoAtendimento(xmlContent);
-    saveToHistory(xmlContent);
-    setXmlContent(result.content);
-    setGuides(extractGuides(result.content));
+    const formattedResult = parseAndBuildXml(result.content); // Formatar após a padronização
+    setXmlContent(formattedResult);
+    setGuides(extractGuides(formattedResult));
     addLog(
       "tipoAtendimento padronizado",
       result.changes > 0 ? "success" : "warning",
@@ -336,10 +340,11 @@ const ConvenioPanel = () => {
   };
 
   const handleStandardizeCBOS = () => {
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const result = standardizeCBOS(xmlContent);
-    saveToHistory(xmlContent);
-    setXmlContent(result.content);
-    setGuides(extractGuides(result.content));
+    const formattedResult = parseAndBuildXml(result.content); // Formatar após a padronização
+    setXmlContent(formattedResult);
+    setGuides(extractGuides(formattedResult));
     addLog(
       "CBOS padronizado",
       result.changes > 0 ? "success" : "warning",
@@ -352,12 +357,13 @@ const ConvenioPanel = () => {
   };
 
   const handleDeleteGuide = (guideId: string) => {
-    saveToHistory(xmlContent);
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     let newContent = deleteGuide(xmlContent, guideId);
     newContent = addEpilogo(newContent);
-    setXmlContent(newContent);
+    const formattedContent = parseAndBuildXml(newContent); // Formatar após exclusão e epílogo
+    setXmlContent(formattedContent);
     
-    const updatedGuides = extractGuides(newContent);
+    const updatedGuides = extractGuides(formattedContent);
     setGuides(updatedGuides);
     
     const deletedGuide = guides.find(g => g.id === guideId);
@@ -384,9 +390,10 @@ const ConvenioPanel = () => {
   };
 
   const handleFindReplace = (newContent: string, changes: number) => {
-    saveToHistory(xmlContent);
-    setXmlContent(newContent);
-    setGuides(extractGuides(newContent));
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    const formattedContent = parseAndBuildXml(newContent); // Formatar após substituição
+    setXmlContent(formattedContent);
+    setGuides(extractGuides(formattedContent));
     addLog("Substituição realizada", "success", `${changes} substituições`);
     toast({
       title: "Substituição realizada",
@@ -395,10 +402,11 @@ const ConvenioPanel = () => {
   };
 
   const handleFixHash = () => {
-    saveToHistory(xmlContent);
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const newContent = addEpilogo(xmlContent);
-    setXmlContent(newContent);
-    setGuides(extractGuides(newContent));
+    const formattedContent = parseAndBuildXml(newContent); // Formatar após correção do hash
+    setXmlContent(formattedContent);
+    setGuides(extractGuides(formattedContent));
     addLog("Hash corrigido", "success", "Hash MD5 recalculado");
     toast({
       title: "Hash corrigido",
@@ -407,18 +415,20 @@ const ConvenioPanel = () => {
   };
 
   const handleXMLChange = (newContent: string) => {
+    // Não formatar em cada keystroke para evitar interrupções na digitação
     setXmlContent(newContent);
-    const newGuides = extractGuides(newContent);
+    const newGuides = extractGuides(newContent); // Extrair guias do conteúdo não formatado para manter responsividade
     setGuides(newGuides);
   };
 
   const handleUndo = () => {
     if (history.length > 1) {
       const previousContent = history[history.length - 2];
-      setXmlContent(previousContent);
+      const formattedContent = parseAndBuildXml(previousContent); // Formatar ao desfazer
+      setXmlContent(formattedContent);
       setHistory((prev) => prev.slice(0, -1));
       
-      const newGuides = extractGuides(previousContent);
+      const newGuides = extractGuides(formattedContent);
       setGuides(newGuides);
       
       addLog("Ação desfeita", "info", "Conteúdo restaurado");

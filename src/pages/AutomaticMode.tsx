@@ -5,10 +5,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Upload, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import JSZip from "jszip";
-import { fixXMLStructure, standardizeTipoAtendimento, standardizeCBOS, extractGuides, addEpilogo, extractLotNumber } from "@/utils/xmlProcessor"; // Importar extractLotNumber
+import { fixXMLStructure, standardizeTipoAtendimento, standardizeCBOS, extractGuides, addEpilogo, extractLotNumber, parseAndBuildXml } from "@/utils/xmlProcessor"; // Importar parseAndBuildXml
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
 import { FaturistaNameModal } from "@/components/FaturistaNameModal";
-import { loadFaturistaName } from "@/utils/localStorage"; // Importar loadFaturistaName
+import { loadFaturistaName } from "@/utils/localStorage";
 
 interface ProcessingLog {
   action: string;
@@ -172,13 +172,14 @@ const AutomaticMode = () => {
       });
 
       const result = processXMLFile(content);
-      const finalContent = addEpilogo(result.content); // Add epilogo here
+      const finalContentWithEpilogo = addEpilogo(result.content);
+      const formattedFinalContent = parseAndBuildXml(finalContentWithEpilogo); // Formatar o conteúdo final
       addLog("Processamento", `${result.totalChanges} correções aplicadas`);
 
-      const guides = extractGuides(finalContent);
+      const guides = extractGuides(formattedFinalContent);
       const totalValue = guides.reduce((sum, guide) => sum + guide.valorTotalGeral, 0);
 
-      setProcessedContentForDownload(finalContent); // Store XML string
+      setProcessedContentForDownload(formattedFinalContent); // Store XML string
       setCurrentGuides(guides);
       setCurrentTotalValue(totalValue);
       
@@ -212,17 +213,19 @@ const AutomaticMode = () => {
     for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
       if (!zipEntry.dir && filename.endsWith('.xml')) {
         const content = await zipEntry.async('text');
-        if (!firstXmlContent) {
-          firstXmlContent = content; // Store content of the first XML for lot number extraction
-        }
         const result = processXMLFile(content);
-        const finalContent = addEpilogo(result.content); // Add epilogo here for each XML in zip
-        outputZip.file(filename, finalContent);
+        const finalContentWithEpilogo = addEpilogo(result.content);
+        const formattedFileContent = parseAndBuildXml(finalContentWithEpilogo); // Formatar cada arquivo XML
+        outputZip.file(filename, formattedFileContent);
         totalFiles++;
-        totalChanges += result.totalChanges; // Corrigido: de result.changes para result.totalChanges
+        totalChanges += result.totalChanges;
         
-        const fileGuides = extractGuides(finalContent);
+        const fileGuides = extractGuides(formattedFileContent);
         allGuides.push(...fileGuides);
+
+        if (!firstXmlContent) {
+          firstXmlContent = formattedFileContent; // Store formatted content of the first XML for lot number extraction
+        }
       }
     }
 
