@@ -252,8 +252,6 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       const nomeProfissional = findTagValueRecursive(guideObj, ['ans:nomeProfissional', 'nomeProfissional']) || 'N/A';
       const dataExecucao = findTagValueRecursive(guideObj, ['ans:dataExecucao', 'dataExecucao']) || 'N/A';
       
-      // More robust extraction for valorTotalGeral
-      // Expanded list of potential value tags
       const rawValorTotalGeral = findTagValueRecursive(guideObj, [
         'ans:valorTotalGeral', 'valorTotalGeral',
         'ans:valorTotal', 'valorTotal',
@@ -272,21 +270,38 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       let valorTotalGeral = 0;
       if (rawValorTotalGeral) {
         let sanitizedValue = rawValorTotalGeral.trim();
-        // Remove todos os pontos (separadores de milhares)
-        sanitizedValue = sanitizedValue.replace(/\./g, '');
-        // Substitui a vírgula (separador decimal) por ponto
-        sanitizedValue = sanitizedValue.replace(/,/g, '.');
-        // Remove quaisquer outros caracteres não numéricos, exceto o ponto decimal
-        sanitizedValue = sanitizedValue.replace(/[^0-9.]/g, '');
-        
+        // Remove todos os caracteres que não são dígitos, vírgulas ou pontos
+        sanitizedValue = sanitizedValue.replace(/[^0-9.,]/g, '');
+
+        const commaCount = (sanitizedValue.match(/,/g) || []).length;
+        const dotCount = (sanitizedValue.match(/\./g) || []).length;
+
+        if (commaCount === 1 && dotCount === 0) { // Ex: "123,45" (decimal com vírgula)
+            sanitizedValue = sanitizedValue.replace(',', '.');
+        } else if (dotCount === 1 && commaCount === 0) { // Ex: "123.45" (decimal com ponto)
+            // Já está no formato correto para parseFloat
+        } else if (commaCount > 0 && dotCount > 0) { // Ex: "1.234,56" (BR) ou "1,234.56" (US)
+            const lastCommaIndex = sanitizedValue.lastIndexOf(',');
+            const lastDotIndex = sanitizedValue.lastIndexOf('.');
+
+            if (lastCommaIndex > lastDotIndex) { // Provavelmente formato Brasileiro: "1.234,56"
+                sanitizedValue = sanitizedValue.replace(/\./g, ''); // Remove separadores de milhares (pontos)
+                sanitizedValue = sanitizedValue.replace(/,/g, '.'); // Troca vírgula decimal por ponto
+            } else { // Provavelmente formato Americano: "1,234.56"
+                sanitizedValue = sanitizedValue.replace(/,/g, ''); // Remove separadores de milhares (vírgulas)
+                // O ponto decimal já está correto
+            }
+        }
+        // Se não houver separadores, ou apenas um ponto/vírgula, parseFloat lida corretamente.
+
         valorTotalGeral = parseFloat(sanitizedValue) || 0;
       }
 
       console.log('--- Extracted Guide Data ---');
       console.log('Guide Object:', guideObj);
       console.log('numeroGuiaPrestador:', numeroGuiaPrestador);
-      // console.log('rawValorTotalGeral found:', rawValorTotalGeral); // Removed for brevity
-      // console.log('sanitizedValue:', sanitizedValue); // Removed for brevity
+      console.log('rawValorTotalGeral found:', rawValorTotalGeral);
+      console.log('sanitizedValue after processing:', sanitizedValue);
       console.log('valorTotalGeral parsed:', valorTotalGeral);
       console.log('---------------------------');
 
@@ -311,7 +326,6 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       const numeroCarteira = (guideContent.match(/<ans:numeroCarteira>(.*?)<\/ans:numeroCarteira>/) || [])[1] || 'N/A';
       const nomeProfissional = (guideContent.match(/<ans:nomeProfissional>(.*?)<\/ans:nomeProfissional>/) || [])[1] || 'N/A';
       
-      // Regex fallback for valorTotalGeral, also needs sanitization
       const rawValorTotalGeral = (guideContent.match(/<ans:valorTotalGeral>(.*?)<\/ans:valorTotalGeral>/) || [])[1] || 
                                  (guideContent.match(/<valorTotalGeral>(.*?)<\/valorTotalGeral>/) || [])[1] ||
                                  (guideContent.match(/<ans:valorTotal>(.*?)<\/ans:valorTotal>/) || [])[1] ||
@@ -322,9 +336,26 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       let valorTotalGeral = 0;
       if (rawValorTotalGeral) {
         let sanitizedValue = rawValorTotalGeral.trim();
-        sanitizedValue = sanitizedValue.replace(/\./g, '');
-        sanitizedValue = sanitizedValue.replace(/,/g, '.');
-        sanitizedValue = sanitizedValue.replace(/[^0-9.]/g, '');
+        sanitizedValue = sanitizedValue.replace(/[^0-9.,]/g, '');
+
+        const commaCount = (sanitizedValue.match(/,/g) || []).length;
+        const dotCount = (sanitizedValue.match(/\./g) || []).length;
+
+        if (commaCount === 1 && dotCount === 0) {
+            sanitizedValue = sanitizedValue.replace(',', '.');
+        } else if (dotCount === 1 && commaCount === 0) {
+            // Keep as is
+        } else if (commaCount > 0 && dotCount > 0) {
+            const lastCommaIndex = sanitizedValue.lastIndexOf(',');
+            const lastDotIndex = sanitizedValue.lastIndexOf('.');
+
+            if (lastCommaIndex > lastDotIndex) {
+                sanitizedValue = sanitizedValue.replace(/\./g, '');
+                sanitizedValue = sanitizedValue.replace(/,/g, '.');
+            } else {
+                sanitizedValue = sanitizedValue.replace(/,/g, '');
+            }
+        }
         valorTotalGeral = parseFloat(sanitizedValue) || 0;
       }
 
