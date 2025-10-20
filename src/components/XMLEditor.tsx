@@ -3,10 +3,11 @@ import { Code } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Editor from 'react-simple-code-editor';
 import React from "react"; // Importar React para os tipos de evento
-import Prism from 'prismjs'; // Importar Prism para destaque de sintaxe
-import 'prismjs/components/prism-markup.js'; // Adicionado: Dependência para prism-xml com .js
-import 'prismjs/components/prism-xml.js'; // Importar a linguagem XML com .js
-import 'prismjs/themes/prism.css'; // Importar o tema CSS do Prism
+// As importações do Prism.js foram removidas conforme solicitado.
+// import Prism from 'prismjs';
+// import 'prismjs/components/prism-markup.js';
+// import 'prismjs/components/prism-xml.js';
+// import 'prismjs/themes/prism.css';
 
 interface XMLEditorProps {
   content: string;
@@ -49,7 +50,8 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
           <Editor
             value={content}
             onValueChange={onChange}
-            highlight={(code) => Prism.highlight(code, Prism.languages.xml, 'xml')} // Reativando o destaque de sintaxe
+            // A propriedade highlight foi removida conforme solicitado.
+            // highlight={(code) => Prism.highlight(code, Prism.languages.xml, 'xml')}
             padding={10}
             textareaId="xml-editor-textarea"
             className={cn("font-mono text-xs resize-none h-[1300px] bg-muted/30")}
