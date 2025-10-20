@@ -252,25 +252,16 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       const nomeProfissional = findTagValueRecursive(guideObj, ['ans:nomeProfissional', 'nomeProfissional']) || 'N/A';
       const dataExecucao = findTagValueRecursive(guideObj, ['ans:dataExecucao', 'dataExecucao']) || 'N/A';
       
-      const rawValorTotalGeral = findTagValueRecursive(guideObj, [
-        'ans:valorTotalGeral', 'valorTotalGeral',
-        'ans:valorTotal', 'valorTotal',
-        'ans:valorServicos', 'valorServicos',
-        'ans:valorProcedimento', 'valorProcedimento',
-        'ans:valorUnitario', 'valorUnitario',
-        'ans:valorTotalHonorarios', 'valorTotalHonorarios', 
-        'ans:valorTotalDiarias', 'valorTotalDiarias',
-        'ans:valorTotalTaxas', 'valorTotalTaxas',
-        'ans:valorTotalMateriais', 'valorTotalMateriais',
-        'ans:valorTotalMedicamentos', 'valorTotalMedicamentos',
-        'ans:valorTotalGasMed', 'valorTotalGasMed',
-        'ans:valorTotalOutros', 'valorTotalOutros',
-      ]);
-      
       let valorTotalGeral = 0;
-      let sanitizedValue: string = ''; // Declarado fora do bloco if
+      let rawValorTotalGeral = findTagValueRecursive(guideObj, ['ans:valorTotalGeral', 'valorTotalGeral']);
+      
+      // Prioritize ans:valorTotalGeral, then ans:valorTotal
+      if (!rawValorTotalGeral) {
+        rawValorTotalGeral = findTagValueRecursive(guideObj, ['ans:valorTotal', 'valorTotal']);
+      }
+
       if (rawValorTotalGeral) {
-        sanitizedValue = rawValorTotalGeral.trim();
+        let sanitizedValue = rawValorTotalGeral.trim();
         // Remove todos os caracteres que não são dígitos, vírgulas ou pontos
         sanitizedValue = sanitizedValue.replace(/[^0-9.,]/g, '');
 
@@ -298,14 +289,6 @@ export const extractGuides = (xmlContent: string): Guide[] => {
         valorTotalGeral = parseFloat(sanitizedValue) || 0;
       }
 
-      console.log('--- Extracted Guide Data ---');
-      console.log('Guide Object:', guideObj);
-      console.log('numeroGuiaPrestador:', numeroGuiaPrestador);
-      console.log('rawValorTotalGeral found:', rawValorTotalGeral);
-      console.log('sanitizedValue after processing:', sanitizedValue); // Agora acessível
-      console.log('valorTotalGeral parsed:', valorTotalGeral);
-      console.log('---------------------------');
-
       guides.push({
         id: numeroGuiaPrestador, // Usar numeroGuiaPrestador como ID
         numeroGuiaPrestador: numeroGuiaPrestador,
@@ -327,11 +310,14 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       const numeroCarteira = (guideContent.match(/<ans:numeroCarteira>(.*?)<\/ans:numeroCarteira>/) || [])[1] || 'N/A';
       const nomeProfissional = (guideContent.match(/<ans:nomeProfissional>(.*?)<\/ans:nomeProfissional>/) || [])[1] || 'N/A';
       
-      const rawValorTotalGeral = (guideContent.match(/<ans:valorTotalGeral>(.*?)<\/ans:valorTotalGeral>/) || [])[1] || 
-                                 (guideContent.match(/<valorTotalGeral>(.*?)<\/valorTotalGeral>/) || [])[1] ||
-                                 (guideContent.match(/<ans:valorTotal>(.*?)<\/ans:valorTotal>/) || [])[1] ||
-                                 (guideContent.match(/<valorTotal>(.*?)<\/valorTotal>/) || [])[1] ||
-                                 '0.00';
+      let rawValorTotalGeral = (guideContent.match(/<ans:valorTotalGeral>(.*?)<\/ans:valorTotalGeral>/) || [])[1] || 
+                               (guideContent.match(/<valorTotalGeral>(.*?)<\/valorTotalGeral>/) || [])[1];
+      
+      if (!rawValorTotalGeral) {
+        rawValorTotalGeral = (guideContent.match(/<ans:valorTotal>(.*?)<\/ans:valorTotal>/) || [])[1] ||
+                             (guideContent.match(/<valorTotal>(.*?)<\/valorTotal>/) || [])[1];
+      }
+      
       const dataExecucao = (guideContent.match(/<ans:dataExecucao>(.*?)<\/ans:dataExecucao>/) || [])[1] || 'N/A';
 
       let valorTotalGeral = 0;

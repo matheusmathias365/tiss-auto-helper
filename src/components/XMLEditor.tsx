@@ -3,6 +3,9 @@ import { Code } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Editor from 'react-simple-code-editor';
 import React from "react"; // Importar React para os tipos de evento
+import Prism from 'prismjs'; // Importar Prism para destaque de sintaxe
+import 'prismjs/components/prism-xml'; // Importar a linguagem XML
+import 'prismjs/themes/prism.css'; // Importar o tema CSS do Prism
 
 interface XMLEditorProps {
   content: string;
@@ -12,19 +15,15 @@ interface XMLEditorProps {
 }
 
 export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XML" }: XMLEditorProps) => {
-  // A função handleContextMenu deve aceitar um evento de HTMLDivElement
-  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+  // A função handleContextMenu agora aceita um evento de HTMLTextAreaElement
+  const handleContextMenu = (e: React.MouseEvent<HTMLTextAreaElement>) => {
     if (!onTagQuery) return;
     
-    // O componente Editor envolve o textarea em uma div, então o currentTarget será a div.
-    // Precisamos encontrar o textarea real dentro dessa div para obter selectionStart.
-    const textarea = e.currentTarget.querySelector('textarea') as HTMLTextAreaElement | null;
-
-    if (!textarea) return; // Se não encontrar o textarea, sai.
+    // e.currentTarget é o textarea diretamente
+    const textarea = e.currentTarget;
 
     const cursorPos = textarea.selectionStart;
     const textBeforeCursor = content.substring(0, cursorPos);
-    // const textAfterCursor = content.substring(cursorPos); // Não utilizado, pode ser removido
 
     // Encontra a tag ao redor do cursor
     const tagStartMatch = textBeforeCursor.match(/<([a-zA-Z:_][\w:.-]*)(?:\s|>)?[^<]*$/);
@@ -49,7 +48,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
           <Editor
             value={content}
             onValueChange={onChange}
-            highlight={(code) => code} // Revertido para destaque simples
+            highlight={(code) => Prism.highlight(code, Prism.languages.xml, 'xml')} // Reativando o destaque de sintaxe
             padding={10}
             textareaId="xml-editor-textarea"
             className={cn("font-mono text-xs resize-none h-[1300px] bg-muted/30")}
