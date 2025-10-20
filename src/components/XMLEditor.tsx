@@ -50,8 +50,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
           <Editor
             value={content}
             onValueChange={onChange}
-            // A propriedade highlight foi removida conforme solicitado.
-            // highlight={(code) => Prism.highlight(code, Prism.languages.xml, 'xml')}
+            highlight={(code) => code} // Agora, a função highlight apenas retorna o código, sem destaque.
             padding={10}
             textareaId="xml-editor-textarea"
             className={cn("font-mono text-xs resize-none h-[1300px] bg-muted/30")}
