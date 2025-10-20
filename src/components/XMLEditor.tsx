@@ -3,6 +3,7 @@ import { Code } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Editor from 'react-simple-code-editor';
 import React from "react";
+import { ScrollArea } from "@/components/ui/scroll-area"; // Importar ScrollArea
 
 interface XMLEditorProps {
   content: string;
@@ -38,23 +39,26 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
       </CardHeader>
       <CardContent>
         <div className="relative border rounded-md overflow-hidden">
-          <Editor
-            value={content}
-            onValueChange={onChange}
-            highlight={(code) => code}
-            padding={10}
-            textareaId="xml-editor-textarea"
-            className={cn("font-mono text-xs resize-none h-[1300px] bg-muted/30 text-foreground")} // Adicionado 'text-foreground' aqui
-            style={{
-              fontFamily: '"Fira code", "Fira Mono", monospace',
-              fontSize: 12,
-              lineHeight: '1.5em',
-              outline: 'none',
-              whiteSpace: 'pre-wrap',
-              // A cor inline foi removida para priorizar a classe Tailwind
-            }}
-            onContextMenu={handleContextMenu}
-          />
+          <ScrollArea className="h-[600px] w-full"> {/* Envolve o editor com ScrollArea e define altura */}
+            <Editor
+              value={content}
+              onValueChange={onChange}
+              highlight={(code) => code}
+              padding={10}
+              textareaId="xml-editor-textarea"
+              className={cn("font-mono text-xs resize-none bg-muted/30")} // Removido 'h-[1300px]' e 'text-foreground' daqui
+              style={{
+                fontFamily: '"Fira code", "Fira Mono", monospace',
+                fontSize: 12,
+                lineHeight: '1.5em',
+                outline: 'none',
+                whiteSpace: 'pre-wrap',
+                color: 'black', // Definido explicitamente para preto para garantir visibilidade
+                minHeight: '100%', // Garante que o editor preencha a altura da ScrollArea
+              }}
+              onContextMenu={handleContextMenu}
+            />
+          </ScrollArea>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
           Edite o XML diretamente. Clique com botão direito numa tag para ver sua explicação.
