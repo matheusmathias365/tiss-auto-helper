@@ -54,7 +54,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
               outline: 'none',
               whiteSpace: 'pre-wrap',
             }}
-            onContextMenu={handleContextMenu}
+            onContextMenu={handleContextMenu as React.MouseEventHandler<HTMLTextAreaElement>}
           />
         </div>
         <p className="text-xs text-muted-foreground mt-2">
