@@ -48,31 +48,55 @@ export const FileUpload = ({ onFileLoad }: FileUploadProps) => {
         let content: string;
         let detectedEncoding: string = 'UTF-8'; // Default encoding
 
-        // First, try to decode a small part to find XML declaration
-        const preliminaryDecoder = new TextDecoder('utf-8', { fatal: true });
-        let preliminaryContent = '';
-        try {
-          // Decode first 1024 bytes to find encoding declaration
-          preliminaryContent = preliminaryDecoder.decode(arrayBuffer.slice(0, Math.min(arrayBuffer.byteLength, 1024)));
-        } catch (error) {
-          // If UTF-8 fails for the start, it might be ISO-8859-1
-          const isoDecoder = new TextDecoder('iso-8859-1', { fatal: true });
-          preliminaryContent = isoDecoder.decode(arrayBuffer.slice(0, Math.min(arrayBuffer.byteLength, 1024)));
-          detectedEncoding = 'ISO-8859-1';
-        }
-        
-        const xmlDeclarationMatch = preliminaryContent.match(/<\?xml[^>]*encoding=["']([^"']*)["'][^>]*\?>/i);
+        // Step 1: Read a small chunk to find XML declaration, trying common encodings
+        const bufferSlice = arrayBuffer.slice(0, Math.min(arrayBuffer.byteLength, 2048)); // Read a bit more for safety
+
+        // Try decoding with UTF-8 first to find declaration
+        let preliminaryContent = new TextDecoder('utf-8', { fatal: false }).decode(bufferSlice);
+        let xmlDeclarationMatch = preliminaryContent.match(/<\?xml[^>]*encoding=["']([^"']*)["'][^>]*\?>/i);
+
         if (xmlDeclarationMatch && xmlDeclarationMatch[1]) {
           const declaredEncoding = xmlDeclarationMatch[1].toUpperCase();
-          // Common encodings for TISS XMLs
-          if (declaredEncoding === 'ISO-8859-1' || declaredEncoding === 'WINDOWS-1252' || declaredEncoding === 'UTF-8') {
+          if (['ISO-8859-1', 'WINDOWS-1252', 'UTF-8'].includes(declaredEncoding)) {
             detectedEncoding = declaredEncoding;
+          }
+        } else {
+          // If no declaration or not a common one, try ISO-8859-1 for declaration
+          preliminaryContent = new TextDecoder('iso-8859-1', { fatal: false }).decode(bufferSlice);
+          xmlDeclarationMatch = preliminaryContent.match(/<\?xml[^>]*encoding=["']([^"']*)["'][^>]*\?>/i);
+          if (xmlDeclarationMatch && xmlDeclarationMatch[1]) {
+            const declaredEncoding = xmlDeclarationMatch[1].toUpperCase();
+            if (['ISO-8859-1', 'WINDOWS-1252', 'UTF-8'].includes(declaredEncoding)) {
+              detectedEncoding = declaredEncoding;
+            }
           }
         }
 
-        // Decode the full content with the detected or default encoding
-        const finalDecoder = new TextDecoder(detectedEncoding, { fatal: true });
-        content = finalDecoder.decode(arrayBuffer);
+        // Step 2: Decode the full content with the detected or default encoding
+        // Use fatal: true for the final decode to catch actual errors
+        try {
+          const finalDecoder = new TextDecoder(detectedEncoding, { fatal: true });
+          content = finalDecoder.decode(arrayBuffer);
+        } catch (decodeError) {
+          console.warn(`Failed to decode with ${detectedEncoding}, trying fallback encodings.`, decodeError);
+          // Fallback if the detected encoding (or default UTF-8) fails for the full content
+          try {
+            detectedEncoding = 'ISO-8859-1';
+            const fallbackDecoder = new TextDecoder(detectedEncoding, { fatal: true });
+            content = fallbackDecoder.decode(arrayBuffer);
+          } catch (isoError) {
+            try {
+              detectedEncoding = 'WINDOWS-1252';
+              const fallbackDecoder = new TextDecoder(detectedEncoding, { fatal: true });
+              content = fallbackDecoder.decode(arrayBuffer);
+            } catch (winError) {
+              // If all fail, try UTF-8 non-fatal as a last resort
+              detectedEncoding = 'UTF-8 (fallback non-fatal)';
+              const fallbackDecoder = new TextDecoder('utf-8', { fatal: false });
+              content = fallbackDecoder.decode(arrayBuffer);
+            }
+          }
+        }
         
         // Validate XML content structure
         const trimmedContent = content.trim();
