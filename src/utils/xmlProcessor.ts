@@ -19,15 +19,15 @@ export interface Guide {
 // Safe XML parser configuration to prevent XXE and entity expansion attacks
 const parserOptions = {
   ignoreAttributes: false,
-  attributeNamePrefix: "", // Alterado para string vazia para remover o prefixo '@_'
+  attributeNamePrefix: "",
   textNodeName: "#text",
-  ignoreDeclaration: false, // Importante para preservar <?xml ...?>
-  preserveOrder: false,
+  ignoreDeclaration: true, // Changed to true to let builder handle it or assume it's part of content
+  preserveOrder: true,    // Changed to true to preserve original XML structure
   parseTagValue: false,
-  trimValues: false, // Alterado para false para preservar todos os espaços em branco
-  processEntities: false, // Critical: prevents entity expansion attacks
+  trimValues: false,
+  processEntities: false,
   allowBooleanAttributes: true,
-  stopNodes: ["*.CDATA"], // Don't parse CDATA content
+  stopNodes: ["*.CDATA"],
   // Força que 'ans:guiaSP-SADT' e 'guiaSP-SADT' sejam sempre arrays
   isArray: (tagName: string, jPath: string, is  : boolean) => {
     if (tagName === "ans:guiaSP-SADT" || tagName === "guiaSP-SADT") {
@@ -39,7 +39,7 @@ const parserOptions = {
 
 const builderOptions = {
   ignoreAttributes: false,
-  attributeNamePrefix: "", // Alterado para string vazia para remover o prefixo '@_'
+  attributeNamePrefix: "",
   textNodeName: "#text",
   format: true,
   indentBy: "  ",
