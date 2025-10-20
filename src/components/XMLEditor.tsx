@@ -5,6 +5,12 @@ import Editor from 'react-simple-code-editor';
 import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area"; // Importar ScrollArea
 
+// Importar Prism.js e seus componentes para destaque de sintaxe XML
+import Prism from 'prismjs';
+import 'prismjs/components/prism-markup.js'; // Para estrutura XML/HTML
+import 'prismjs/components/prism-xml.js';   // Para regras específicas de XML
+import 'prismjs/themes/prism.css'; // Tema padrão do Prism para cores básicas
+
 interface XMLEditorProps {
   content: string;
   onChange: (content: string) => void;
@@ -43,7 +49,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
             <Editor
               value={content}
               onValueChange={onChange}
-              highlight={(code) => code}
+              highlight={(code) => Prism.highlight(code, Prism.languages.xml, 'xml')} // Usando Prism para destaque de sintaxe XML
               padding={10}
               textareaId="xml-editor-textarea"
               className={cn("font-mono text-xs resize-none bg-muted/30")} // Removido 'h-[1300px]' e 'text-foreground' daqui
