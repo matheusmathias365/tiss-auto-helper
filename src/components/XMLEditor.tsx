@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import Editor from 'react-simple-code-editor';
 import React from "react"; // Importar React para os tipos de evento
 import Prism from 'prismjs'; // Importar Prism para destaque de sintaxe
+import 'prismjs/components/prism-markup'; // Adicionado: Dependência para prism-xml
 import 'prismjs/components/prism-xml'; // Importar a linguagem XML
 import 'prismjs/themes/prism.css'; // Importar o tema CSS do Prism
 
