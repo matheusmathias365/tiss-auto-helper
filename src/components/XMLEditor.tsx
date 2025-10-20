@@ -50,7 +50,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
           <Editor
             value={content}
             onValueChange={onChange}
-            highlight={(code) => code} // Agora, a função highlight apenas retorna o código, sem destaque.
+            highlight={(code) => code}
             padding={10}
             textareaId="xml-editor-textarea"
             className={cn("font-mono text-xs resize-none h-[1300px] bg-muted/30")}
@@ -60,6 +60,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
               lineHeight: '1.5em',
               outline: 'none',
               whiteSpace: 'pre-wrap',
+              color: 'hsl(var(--foreground))', // Garante que o texto seja visível
             }}
             onContextMenu={handleContextMenu}
           />
