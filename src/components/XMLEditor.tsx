@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Code } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Editor from 'react-simple-code-editor';
-// Removidas as importações do Prism.js
+import React from "react"; // Importar React para os tipos de evento
 
 interface XMLEditorProps {
   content: string;
@@ -12,14 +12,19 @@ interface XMLEditorProps {
 }
 
 export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XML" }: XMLEditorProps) => {
-  const handleContextMenu = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!onTagQuery) return;
     
-    const textarea = e.currentTarget; // e.currentTarget já é HTMLTextAreaElement aqui
+    // O componente Editor envolve o textarea em uma div, então o currentTarget pode ser a div.
+    // Precisamos encontrar o textarea real para obter selectionStart.
+    const textarea = e.currentTarget.querySelector('textarea') as HTMLTextAreaElement | null;
+
+    if (!textarea) return; // Se não encontrar o textarea, sai.
+
     const cursorPos = textarea.selectionStart;
     const textBeforeCursor = content.substring(0, cursorPos);
-    const textAfterCursor = content.substring(cursorPos);
-    
+    // const textAfterCursor = content.substring(cursorPos); // Não utilizado, pode ser removido
+
     // Find the tag around cursor
     const tagStartMatch = textBeforeCursor.match(/<([a-zA-Z:_][\w:.-]*)(?:\s|>)?[^<]*$/);
     
@@ -54,7 +59,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
               outline: 'none',
               whiteSpace: 'pre-wrap',
             }}
-            onContextMenu={handleContextMenu as React.MouseEventHandler<HTMLTextAreaElement>}
+            onContextMenu={handleContextMenu}
           />
         </div>
         <p className="text-xs text-muted-foreground mt-2">
