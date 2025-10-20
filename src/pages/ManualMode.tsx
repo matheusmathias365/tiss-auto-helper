@@ -60,16 +60,28 @@ const ManualMode = () => {
     setHistory((prev) => [...prev, content]);
   };
 
-  // handleFixStructure foi removido, pois o usuário não deseja mais essa funcionalidade no modo manual.
-  // Se for necessário no futuro, pode ser reintroduzido ou adaptado.
+  const handleFixStructure = () => {
+    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    const result = fixXMLStructure(xmlContent);
+    const formattedResult = parseAndBuildXml(result.content); // Formatar após a correção
+    setXmlContent(formattedResult);
+    
+    setGuides(extractGuides(formattedResult));
+
+    if (result.changes > 0) {
+      toast({
+        title: "Estrutura corrigida",
+        description: `${result.changes} tags corrigidas com sucesso.`,
+      });
+    }
+  };
 
   const handleStandardizeTipoAtendimento = () => {
     saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const result = standardizeTipoAtendimento(xmlContent);
-    const formattedResult = parseAndBuildXml(result.content); // Formatar após a padronização
-    setXmlContent(formattedResult);
-
-    setGuides(extractGuides(formattedResult));
+    // A função standardizeTipoAtendimento já retorna o XML formatado.
+    setXmlContent(result.content); 
+    setGuides(extractGuides(result.content)); // Extrair guias do conteúdo já formatado
     
     if (result.changes > 0) {
       toast({
@@ -82,10 +94,9 @@ const ManualMode = () => {
   const handleStandardizeCBOS = () => {
     saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const result = standardizeCBOS(xmlContent);
-    const formattedResult = parseAndBuildXml(result.content); // Formatar após a padronização
-    setXmlContent(formattedResult);
-
-    setGuides(extractGuides(formattedResult));
+    // A função standardizeCBOS já retorna o XML formatado.
+    setXmlContent(result.content);
+    setGuides(extractGuides(result.content)); // Extrair guias do conteúdo já formatado
     
     if (result.changes > 0) {
       toast({
@@ -288,7 +299,7 @@ const ManualMode = () => {
                 </div>
 
                 <ActionButtons
-                  // onFixStructure={handleFixStructure} // Removido
+                  onFixStructure={handleFixStructure}
                   onStandardizeTipoAtendimento={handleStandardizeTipoAtendimento}
                   onStandardizeCBOS={handleStandardizeCBOS}
                   disabled={!xmlContent}

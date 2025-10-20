@@ -183,7 +183,7 @@ const ConvenioPanel = () => {
     }
 
     const tipoResult = standardizeTipoAtendimento(content);
-    content = parseAndBuildXml(tipoResult.content); // Formatar após padronização
+    content = tipoResult.content; // Usar o conteúdo já formatado
     if (tipoResult.changes > 0) {
       addLog("tipoAtendimento padronizado", "success", `${tipoResult.changes} campos`);
       toast({
@@ -199,7 +199,7 @@ const ConvenioPanel = () => {
     }
 
     const cbosResult = standardizeCBOS(content);
-    content = parseAndBuildXml(cbosResult.content); // Formatar após padronização
+    content = cbosResult.content; // Usar o conteúdo já formatado
     if (cbosResult.changes > 0) {
       addLog("CBOS padronizado", "success", `${cbosResult.changes} campos`);
       toast({
@@ -325,9 +325,9 @@ const ConvenioPanel = () => {
   const handleStandardizeTipoAtendimento = () => {
     saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const result = standardizeTipoAtendimento(xmlContent);
-    const formattedResult = parseAndBuildXml(result.content); // Formatar após a padronização
-    setXmlContent(formattedResult);
-    setGuides(extractGuides(formattedResult));
+    // A função standardizeTipoAtendimento já retorna o XML formatado.
+    setXmlContent(result.content);
+    setGuides(extractGuides(result.content)); // Extrair guias do conteúdo já formatado
     addLog(
       "tipoAtendimento padronizado",
       result.changes > 0 ? "success" : "warning",
@@ -342,9 +342,9 @@ const ConvenioPanel = () => {
   const handleStandardizeCBOS = () => {
     saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
     const result = standardizeCBOS(xmlContent);
-    const formattedResult = parseAndBuildXml(result.content); // Formatar após a padronização
-    setXmlContent(formattedResult);
-    setGuides(extractGuides(formattedResult));
+    // A função standardizeCBOS já retorna o XML formatado.
+    setXmlContent(result.content);
+    setGuides(extractGuides(result.content)); // Extrair guias do conteúdo já formatado
     addLog(
       "CBOS padronizado",
       result.changes > 0 ? "success" : "warning",
