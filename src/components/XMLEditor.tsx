@@ -12,11 +12,12 @@ interface XMLEditorProps {
 }
 
 export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XML" }: XMLEditorProps) => {
+  // A função handleContextMenu deve aceitar um evento de HTMLDivElement
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!onTagQuery) return;
     
-    // O componente Editor envolve o textarea em uma div, então o currentTarget pode ser a div.
-    // Precisamos encontrar o textarea real para obter selectionStart.
+    // O componente Editor envolve o textarea em uma div, então o currentTarget será a div.
+    // Precisamos encontrar o textarea real dentro dessa div para obter selectionStart.
     const textarea = e.currentTarget.querySelector('textarea') as HTMLTextAreaElement | null;
 
     if (!textarea) return; // Se não encontrar o textarea, sai.
@@ -25,11 +26,11 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
     const textBeforeCursor = content.substring(0, cursorPos);
     // const textAfterCursor = content.substring(cursorPos); // Não utilizado, pode ser removido
 
-    // Find the tag around cursor
+    // Encontra a tag ao redor do cursor
     const tagStartMatch = textBeforeCursor.match(/<([a-zA-Z:_][\w:.-]*)(?:\s|>)?[^<]*$/);
     
     if (tagStartMatch) {
-      e.preventDefault();
+      e.preventDefault(); // Previne o menu de contexto padrão do navegador
       const tagName = tagStartMatch[1];
       onTagQuery(tagName);
     }
