@@ -15,7 +15,7 @@ export const XMLEditor = ({ content, onChange, onTagQuery, title = "Editor de XM
   const handleContextMenu = (e: React.MouseEvent<HTMLTextAreaElement>) => {
     if (!onTagQuery) return;
     
-    const textarea = e.currentTarget;
+    const textarea = e.currentTarget; // e.currentTarget já é HTMLTextAreaElement aqui
     const cursorPos = textarea.selectionStart;
     const textBeforeCursor = content.substring(0, cursorPos);
     const textAfterCursor = content.substring(cursorPos);

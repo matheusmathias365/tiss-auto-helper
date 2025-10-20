@@ -219,7 +219,7 @@ const AutomaticMode = () => {
         const finalContent = addEpilogo(result.content); // Add epilogo here for each XML in zip
         outputZip.file(filename, finalContent);
         totalFiles++;
-        totalChanges += result.changes;
+        totalChanges += result.totalChanges; // Corrigido: de result.changes para result.totalChanges
         
         const fileGuides = extractGuides(finalContent);
         allGuides.push(...fileGuides);

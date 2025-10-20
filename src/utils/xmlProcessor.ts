@@ -268,8 +268,9 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       ]);
       
       let valorTotalGeral = 0;
+      let sanitizedValue: string = ''; // Declarado fora do bloco if
       if (rawValorTotalGeral) {
-        let sanitizedValue = rawValorTotalGeral.trim();
+        sanitizedValue = rawValorTotalGeral.trim();
         // Remove todos os caracteres que não são dígitos, vírgulas ou pontos
         sanitizedValue = sanitizedValue.replace(/[^0-9.,]/g, '');
 
@@ -301,7 +302,7 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       console.log('Guide Object:', guideObj);
       console.log('numeroGuiaPrestador:', numeroGuiaPrestador);
       console.log('rawValorTotalGeral found:', rawValorTotalGeral);
-      console.log('sanitizedValue after processing:', sanitizedValue);
+      console.log('sanitizedValue after processing:', sanitizedValue); // Agora acessível
       console.log('valorTotalGeral parsed:', valorTotalGeral);
       console.log('---------------------------');
 
