@@ -7,8 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"; // Importar ScrollArea
 
 // Importar Prism.js e seus componentes para destaque de sintaxe XML
 import Prism from 'prismjs';
-import 'prismjs/components/prism-markup.js'; // Para estrutura XML/HTML
-import 'prismjs/components/prism-xml.js';   // Para regras específicas de XML
+import 'prismjs/components/prism-markup'; // Corrigido: removido .js
+import 'prismjs/components/prism-xml';   // Corrigido: removido .js
 import 'prismjs/themes/prism.css'; // Tema padrão do Prism para cores básicas
 
 interface XMLEditorProps {
