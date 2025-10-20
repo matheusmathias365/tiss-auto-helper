@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import JSZip from "jszip";
 import {
-  fixXMLStructure,
+  fixXMLStructure, // Mantido para uso interno se necessário, mas não exposto via botão
   standardizeTipoAtendimento,
   standardizeCBOS,
   extractGuides,
@@ -18,7 +18,7 @@ import {
   addEpilogo,
   Guide,
   extractLotNumber,
-  parseAndBuildXml, // Importar a função de formatação
+  parseAndBuildXml,
 } from "@/utils/xmlProcessor";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
 import { FaturistaNameModal } from "@/components/FaturistaNameModal";
@@ -60,21 +60,8 @@ const ManualMode = () => {
     setHistory((prev) => [...prev, content]);
   };
 
-  const handleFixStructure = () => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
-    const result = fixXMLStructure(xmlContent);
-    const formattedResult = parseAndBuildXml(result.content); // Formatar após a correção
-    setXmlContent(formattedResult);
-    
-    setGuides(extractGuides(formattedResult));
-
-    if (result.changes > 0) {
-      toast({
-        title: "Estrutura corrigida",
-        description: `${result.changes} tags corrigidas com sucesso.`,
-      });
-    }
-  };
+  // handleFixStructure foi removido, pois o usuário não deseja mais essa funcionalidade no modo manual.
+  // Se for necessário no futuro, pode ser reintroduzido ou adaptado.
 
   const handleStandardizeTipoAtendimento = () => {
     saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
@@ -301,7 +288,7 @@ const ManualMode = () => {
                 </div>
 
                 <ActionButtons
-                  onFixStructure={handleFixStructure}
+                  // onFixStructure={handleFixStructure} // Removido
                   onStandardizeTipoAtendimento={handleStandardizeTipoAtendimento}
                   onStandardizeCBOS={handleStandardizeCBOS}
                   disabled={!xmlContent}

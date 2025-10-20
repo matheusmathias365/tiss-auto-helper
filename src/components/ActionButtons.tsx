@@ -2,21 +2,22 @@ import { Button } from "@/components/ui/button";
 import { Wand2, CheckCircle2, User } from "lucide-react";
 
 interface ActionButtonsProps {
-  onFixStructure: () => void;
+  // onFixStructure: () => void; // Removido
   onStandardizeTipoAtendimento: () => void;
   onStandardizeCBOS: () => void;
   disabled: boolean;
 }
 
 export const ActionButtons = ({
-  onFixStructure,
+  // onFixStructure, // Removido
   onStandardizeTipoAtendimento,
   onStandardizeCBOS,
   disabled,
 }: ActionButtonsProps) => {
   return (
     <div className="space-y-3">
-      <Button
+      {/* Botão 'Corrigir Estrutura' removido */}
+      {/* <Button
         onClick={onFixStructure}
         disabled={disabled}
         className="w-full h-auto py-3 flex items-center justify-start gap-3 bg-primary hover:bg-primary/90"
@@ -26,7 +27,7 @@ export const ActionButtons = ({
           <div className="font-semibold">Corrigir Estrutura</div>
           <div className="text-xs opacity-90">Repara tags duplicadas</div>
         </div>
-      </Button>
+      </Button> */}
 
       <Button
         onClick={onStandardizeTipoAtendimento}
