@@ -25,6 +25,7 @@ import {
   addEpilogo,
   Guide,
   extractLotNumber, // Importar a nova função
+  parseAndBuildXml, // Importar a nova função
 } from "@/utils/xmlProcessor";
 import { CorrectionRule } from "@/types/profiles";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
@@ -136,13 +137,14 @@ const ConvenioPanel = () => {
   };
 
   const handleFileLoad = (content: string, name: string) => {
-    setXmlContent(content);
-    setOriginalContent(content);
+    const formattedContent = parseAndBuildXml(content); // Formatar o XML ao carregar
+    setXmlContent(formattedContent);
+    setOriginalContent(formattedContent);
     setFileName(name);
-    setHistory([content]);
+    setHistory([formattedContent]);
     setLogs([]);
     
-    const extractedGuides = extractGuides(content);
+    const extractedGuides = extractGuides(formattedContent);
     setGuides(extractedGuides);
     
     const totalOriginal = extractedGuides.reduce((sum, g) => sum + g.valorTotalGeral, 0);

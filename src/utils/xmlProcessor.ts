@@ -46,6 +46,18 @@ const builderOptions = {
   processEntities: false,
 };
 
+export const parseAndBuildXml = (xmlContent: string): string => {
+  try {
+    const parser = new XMLParser(parserOptions);
+    const builder = new XMLBuilder(builderOptions);
+    const xmlObj = parser.parse(xmlContent);
+    return builder.build(xmlObj);
+  } catch (error) {
+    console.error("Error parsing and rebuilding XML for formatting:", error);
+    return xmlContent; // Return original content on error
+  }
+};
+
 export const fixXMLStructure = (xmlContent: string): ProcessingResult => {
   let content = xmlContent;
   let changes = 0;
@@ -287,8 +299,8 @@ export const extractGuides = (xmlContent: string): Guide[] => {
       console.log('--- Extracted Guide Data ---');
       console.log('Guide Object:', guideObj);
       console.log('numeroGuiaPrestador:', numeroGuiaPrestador);
-      console.log('rawValorTotalGeral found:', rawValorTotalGeral);
-      console.log('sanitizedValue:', sanitizedValue); // Log the sanitized value
+      // console.log('rawValorTotalGeral found:', rawValorTotalGeral); // Removed for brevity
+      // console.log('sanitizedValue:', sanitizedValue); // Removed for brevity
       console.log('valorTotalGeral parsed:', valorTotalGeral);
       console.log('---------------------------');
 
