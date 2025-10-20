@@ -21,10 +21,10 @@ const parserOptions = {
   ignoreAttributes: false,
   attributeNamePrefix: "", // Alterado para string vazia para remover o prefixo '@_'
   textNodeName: "#text",
-  ignoreDeclaration: false,
+  ignoreDeclaration: false, // Importante para preservar <?xml ...?>
   preserveOrder: false,
   parseTagValue: false,
-  trimValues: true,
+  trimValues: false, // Alterado para false para preservar todos os espaços em branco
   processEntities: false, // Critical: prevents entity expansion attacks
   allowBooleanAttributes: true,
   stopNodes: ["*.CDATA"], // Don't parse CDATA content

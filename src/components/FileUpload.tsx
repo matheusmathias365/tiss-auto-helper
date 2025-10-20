@@ -45,13 +45,13 @@ export const FileUpload = ({ onFileLoad }: FileUploadProps) => {
     reader.onload = async (e) => {
       try {
         const arrayBuffer = e.target?.result as ArrayBuffer;
-        let content: string;
-        let detectedEncoding: string = 'UTF-8'; // Default encoding
+        let content: string = '';
+        let detectedEncoding: string = 'UTF-8'; // Default
 
-        // Step 1: Read a small chunk to find XML declaration, trying common encodings
-        const bufferSlice = arrayBuffer.slice(0, Math.min(arrayBuffer.byteLength, 2048)); // Read a bit more for safety
-
-        // Try decoding with UTF-8 first to find declaration
+        // Step 1: Try to detect encoding from XML declaration in a small chunk
+        const bufferSlice = arrayBuffer.slice(0, Math.min(arrayBuffer.byteLength, 2048));
+        
+        // Attempt to decode with UTF-8 first to find declaration
         let preliminaryContent = new TextDecoder('utf-8', { fatal: false }).decode(bufferSlice);
         let xmlDeclarationMatch = preliminaryContent.match(/<\?xml[^>]*encoding=["']([^"']*)["'][^>]*\?>/i);
 
@@ -61,7 +61,7 @@ export const FileUpload = ({ onFileLoad }: FileUploadProps) => {
             detectedEncoding = declaredEncoding;
           }
         } else {
-          // If no declaration or not a common one, try ISO-8859-1 for declaration
+          // If UTF-8 didn't reveal declaration, try ISO-8859-1 for declaration
           preliminaryContent = new TextDecoder('iso-8859-1', { fatal: false }).decode(bufferSlice);
           xmlDeclarationMatch = preliminaryContent.match(/<\?xml[^>]*encoding=["']([^"']*)["'][^>]*\?>/i);
           if (xmlDeclarationMatch && xmlDeclarationMatch[1]) {
@@ -72,30 +72,27 @@ export const FileUpload = ({ onFileLoad }: FileUploadProps) => {
           }
         }
 
-        // Step 2: Decode the full content with the detected or default encoding
-        // Use fatal: true for the final decode to catch actual errors
-        try {
-          const finalDecoder = new TextDecoder(detectedEncoding, { fatal: true });
-          content = finalDecoder.decode(arrayBuffer);
-        } catch (decodeError) {
-          console.warn(`Failed to decode with ${detectedEncoding}, trying fallback encodings.`, decodeError);
-          // Fallback if the detected encoding (or default UTF-8) fails for the full content
+        // Step 2: Decode the full content with the detected/best-guess encoding
+        // Try a sequence of encodings with fatal: true for strict decoding
+        const possibleEncodings = [detectedEncoding, 'ISO-8859-1', 'WINDOWS-1252', 'UTF-8'];
+        let decodedSuccessfully = false;
+        for (const enc of possibleEncodings) {
           try {
-            detectedEncoding = 'ISO-8859-1';
-            const fallbackDecoder = new TextDecoder(detectedEncoding, { fatal: true });
-            content = fallbackDecoder.decode(arrayBuffer);
-          } catch (isoError) {
-            try {
-              detectedEncoding = 'WINDOWS-1252';
-              const fallbackDecoder = new TextDecoder(detectedEncoding, { fatal: true });
-              content = fallbackDecoder.decode(arrayBuffer);
-            } catch (winError) {
-              // If all fail, try UTF-8 non-fatal as a last resort
-              detectedEncoding = 'UTF-8 (fallback non-fatal)';
-              const fallbackDecoder = new TextDecoder('utf-8', { fatal: false });
-              content = fallbackDecoder.decode(arrayBuffer);
-            }
+            const decoder = new TextDecoder(enc, { fatal: true });
+            content = decoder.decode(arrayBuffer);
+            detectedEncoding = enc; // Update to the one that worked
+            decodedSuccessfully = true;
+            break; // Success, stop trying
+          } catch (e) {
+            console.warn(`Failed to decode with ${enc}. Trying next...`, e);
+            content = ''; // Reset content if failed
           }
+        }
+
+        if (!decodedSuccessfully) {
+          // If all fatal decodings failed, try UTF-8 non-fatal as a last resort
+          detectedEncoding = 'UTF-8 (fallback non-fatal)';
+          content = new TextDecoder('utf-8', { fatal: false }).decode(arrayBuffer);
         }
         
         // Validate XML content structure

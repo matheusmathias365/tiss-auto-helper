@@ -137,14 +137,14 @@ const ConvenioPanel = () => {
   };
 
   const handleFileLoad = (content: string, name: string) => {
-    const formattedContent = parseAndBuildXml(content); // Formatar ao carregar
-    setXmlContent(formattedContent);
-    setOriginalContent(formattedContent);
+    // Armazenar o conteúdo bruto (corretamente decodificado)
+    setXmlContent(content);
+    setOriginalContent(content);
     setFileName(name);
-    setHistory([formattedContent]); // Armazenar o conteúdo original formatado no histórico
+    setHistory([content]); // Armazenar o conteúdo original bruto no histórico
     setLogs([]);
     
-    const extractedGuides = extractGuides(formattedContent); // Extrair guias do conteúdo formatado
+    const extractedGuides = extractGuides(content); // Extrair guias do conteúdo bruto
     setGuides(extractedGuides);
     
     const totalOriginal = extractedGuides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
@@ -424,11 +424,11 @@ const ConvenioPanel = () => {
   const handleUndo = () => {
     if (history.length > 1) {
       const previousContent = history[history.length - 2];
-      const formattedContent = parseAndBuildXml(previousContent); // Formatar ao desfazer
-      setXmlContent(formattedContent);
+      // Ao desfazer, o conteúdo já deve estar na sua forma desejada (bruta ou formatada anteriormente)
+      setXmlContent(previousContent); 
       setHistory((prev) => prev.slice(0, -1));
       
-      const newGuides = extractGuides(formattedContent);
+      const newGuides = extractGuides(previousContent);
       setGuides(newGuides);
       
       addLog("Ação desfeita", "info", "Conteúdo restaurado");
