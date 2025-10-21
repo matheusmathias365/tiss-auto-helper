@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShieldCheck, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
-import { validateHash, findEmptyFields, validateProfessionalData } from "@/utils/xmlProcessor";
+import { validateHash, findEmptyFields, validateProfessionalData, validateTissCompliance } from "@/utils/xmlProcessor"; // Importar validateTissCompliance
 
 interface AuditPanelProps {
   content: string;
@@ -31,6 +31,10 @@ export const AuditPanel = ({ content, onFixHash }: AuditPanelProps) => {
     // 3. Validar Dados do Profissional
     const professionalResults = validateProfessionalData(content);
     results.push(...professionalResults);
+
+    // 4. Validação TISS (nova)
+    const tissResults = validateTissCompliance(content);
+    results.push(...tissResults);
 
     setAuditResults(results);
     setIsAuditing(false);

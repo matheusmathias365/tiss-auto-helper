@@ -1,5 +1,6 @@
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 import CryptoJS from 'crypto-js'; // Importando CryptoJS
+import { TISS_TAGS_DATABASE, validateCBOSProcedureCompatibility } from './tissDatabase'; // Importar o banco de dados TISS
 
 export interface ProcessingResult {
   content: string;
@@ -292,6 +293,24 @@ const findNestedTagValue = (obj: any, tagNames: string[]): string | undefined =>
     }
   }
   return undefined;
+};
+
+// Helper para verificar a existência de uma tag em um objeto XML parseado, recursivamente
+const tagExists = (obj: any, tagNames: string[]): boolean => {
+  if (typeof obj !== 'object' || obj === null) return false;
+
+  for (const tagName of tagNames) {
+    if (obj[tagName] !== undefined) {
+      return true;
+    }
+  }
+
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object' && obj[key] !== null) {
+      if (tagExists(obj[key], tagNames)) return true;
+    }
+  }
+  return false;
 };
 
 // Helper para recursivamente encontrar todos os objetos que representam uma guia (ans:guiaSP-SADT ou guiaSP-SADT)
@@ -636,6 +655,54 @@ export const validateProfessionalData = (xmlContent: string): string[] => {
   
   return results;
 };
+
+// Validador TISS abrangente
+export const validateTissCompliance = (xmlContent: string): string[] => {
+  const results: string[] = [];
+  const parser = new XMLParser(parserOptionsForExtraction);
+  let xmlObj: any;
+
+  try {
+    xmlObj = parser.parse(xmlContent);
+  } catch (error) {
+    results.push(`❌ ERRO: Falha ao parsear XML para validação TISS: ${error instanceof Error ? error.message : String(error)}`);
+    return results;
+  }
+
+  // 1. Check for required TISS tags
+  TISS_TAGS_DATABASE.filter(tag => tag.required).forEach(requiredTag => {
+    // The tag in TISS_TAGS_DATABASE might be 'ans:tagname' or just 'tagname'
+    const possibleTagNames = [requiredTag.tag, requiredTag.tag.replace('ans:', '')];
+    if (!tagExists(xmlObj, possibleTagNames)) {
+      results.push(`❌ ERRO: Tag obrigatória '${requiredTag.tag}' (${requiredTag.name}) não encontrada.`);
+    }
+  });
+
+  // 2. Check CBO-S and Procedure compatibility for each guide
+  const rawGuideObjects = deepFindGuideObjects(xmlObj);
+  rawGuideObjects.forEach((rawGuideObj: any) => {
+    const guideNumero = findNestedTagValue(rawGuideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']) || 'N/A';
+    const cbosCode = findNestedTagValue(rawGuideObj, ['ans:CBOS', 'CBOS']);
+    const procedureCode = findNestedTagValue(rawGuideObj, ['ans:codigoProcedimento', 'codigoProcedimento']);
+
+    if (cbosCode && procedureCode) {
+      const compatibility = validateCBOSProcedureCompatibility(cbosCode, procedureCode);
+      if (!compatibility.compatible) {
+        results.push(`⚠️ ALERTA (Guia ${guideNumero}): ${compatibility.warning}`);
+      }
+    } else {
+      if (!cbosCode) results.push(`⚠️ ALERTA (Guia ${guideNumero}): CBO-S não encontrado para validação de compatibilidade.`);
+      if (!procedureCode) results.push(`⚠️ ALERTA (Guia ${guideNumero}): Código de Procedimento não encontrado para validação de compatibilidade.`);
+    }
+  });
+
+  if (results.length === 0) {
+    results.push("✅ Validação TISS OK: Nenhuma inconsistência crítica encontrada.");
+  }
+
+  return results;
+};
+
 
 export const downloadXML = (content: string, fileName: string) => {
   const blob = new Blob([content], { type: 'text/xml' });
