@@ -51,6 +51,14 @@ export const AuditPanel = ({ content, onFixHash }: AuditPanelProps) => {
     return null;
   };
 
+  // Função para remover o emoji do início da string
+  const cleanResultText = (result: string) => {
+    if (result.startsWith("✅ ")) return result.substring(2);
+    if (result.startsWith("❌ ")) return result.substring(2);
+    if (result.startsWith("⚠️ ")) return result.substring(2);
+    return result;
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -91,7 +99,7 @@ export const AuditPanel = ({ content, onFixHash }: AuditPanelProps) => {
                 {auditResults.map((result, index) => (
                   <div key={index} className="flex items-start gap-2 text-xs">
                     {getIcon(result)}
-                    <span className="flex-1 leading-relaxed">{result}</span>
+                    <span className="flex-1 leading-relaxed">{cleanResultText(result)}</span>
                   </div>
                 ))}
               </div>
