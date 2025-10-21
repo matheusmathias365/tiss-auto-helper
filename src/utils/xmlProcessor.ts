@@ -53,41 +53,49 @@ const defaultBuilderOptions = {
   },
 };
 
-// Helper para garantir que o objeto raiz seja o elemento principal, não um array
-const getRootElement = (parsedObj: any): any => {
-  if (Array.isArray(parsedObj) && parsedObj.length > 0) {
-    // Se for um array, assume que o primeiro elemento é o objeto raiz
-    return parsedObj[0];
-  }
-  return parsedObj;
-};
-
 export const rebuildXml = (xmlContent: string): string => {
   try {
     const parser = new XMLParser(commonParserOptions);
     const builder = new XMLBuilder(defaultBuilderOptions);
-    let xmlObj = parser.parse(xmlContent);
-    let rootElement = getRootElement(xmlObj);
+    let parsedObject = parser.parse(xmlContent);
 
-    // Garante que o elemento raiz 'ans:mensagemTISS' tenha os atributos de namespace corretos
-    if (typeof rootElement === 'object' && rootElement !== null && rootElement['ans:mensagemTISS']) {
-      const mensagemTISS = rootElement['ans:mensagemTISS'];
-      if (typeof mensagemTISS === 'object' && mensagemTISS !== null) {
-        mensagemTISS['@_xmlns:xsi'] = "http://www.w3.org/2001/XMLSchema-instance";
-        mensagemTISS['@_xmlns:ans'] = "http://www.ans.gov.br/padroes/tiss/schemas";
-        mensagemTISS['@_xsi:schemaLocation'] = "http://www.ans.gov.br/padroes/tiss/schemas tissV4_01_00.xsd";
+    // Find the actual root element, which should be 'ans:mensagemTISS'
+    let rootTissMessageObject = parsedObject['ans:mensagemTISS'];
+
+    // If 'ans:mensagemTISS' is not directly at the root, try to find it nested
+    // This handles cases where the parser might wrap the root in an outer object or array
+    if (!rootTissMessageObject) {
+      if (Array.isArray(parsedObject)) {
+        const tissMessageNode = parsedObject.find(node => node['ans:mensagemTISS']);
+        if (tissMessageNode) {
+          rootTissMessageObject = tissMessageNode['ans:mensagemTISS'];
+        }
+      } else {
+        const keys = Object.keys(parsedObject);
+        for (const key of keys) {
+          if (typeof parsedObject[key] === 'object' && parsedObject[key] !== null && parsedObject[key]['ans:mensagemTISS']) {
+            rootTissMessageObject = parsedObject[key]['ans:mensagemTISS'];
+            break;
+          }
+        }
       }
     }
+
+    if (!rootTissMessageObject || typeof rootTissMessageObject !== 'object') {
+      console.error("Could not find 'ans:mensagemTISS' as the root element object after parsing. Building raw object.");
+      // Fallback: try to build the original parsed object if root not found
+      return builder.build(parsedObject);
+    }
+
+    // Ensure namespace attributes are present on the root 'ans:mensagemTISS' object
+    rootTissMessageObject['@_xmlns:xsi'] = "http://www.w3.org/2001/XMLSchema-instance";
+    rootTissMessageObject['@_xmlns:ans'] = "http://www.ans.gov.br/padroes/tiss/schemas";
+    rootTissMessageObject['@_xsi:schemaLocation'] = "http://www.ans.gov.br/padroes/tiss/schemas tissV4_01_00.xsd";
     
-    // Remove quaisquer propriedades de namespace que possam ter sido parseadas incorretamente como elementos no nível superior
-    const namespaceKeys = ['@_xmlns:xsi', '@_xmlns:ans', '@_xsi:schemaLocation'];
-    for (const key of namespaceKeys) {
-      if (rootElement[key]) {
-        delete rootElement[key];
-      }
-    }
+    // The builder expects an object where the key is the root tag name
+    const objectToBuild = { "ans:mensagemTISS": rootTissMessageObject };
 
-    return builder.build(rootElement);
+    return builder.build(objectToBuild);
   } catch (error) {
     console.error("Error rebuilding XML:", error);
     return xmlContent;
@@ -98,28 +106,42 @@ export const formatXmlContent = (xmlContent: string): string => {
   try {
     const parser = new XMLParser(commonParserOptions);
     const formattedBuilder = new XMLBuilder({ ...defaultBuilderOptions, format: true, indentBy: "  " });
-    let xmlObj = parser.parse(xmlContent);
-    let rootElement = getRootElement(xmlObj);
+    let parsedObject = parser.parse(xmlContent);
 
-    // Garante que o elemento raiz 'ans:mensagemTISS' tenha os atributos de namespace corretos
-    if (typeof rootElement === 'object' && rootElement !== null && rootElement['ans:mensagemTISS']) {
-      const mensagemTISS = rootElement['ans:mensagemTISS'];
-      if (typeof mensagemTISS === 'object' && mensagemTISS !== null) {
-        mensagemTISS['@_xmlns:xsi'] = "http://www.w3.org/2001/XMLSchema-instance";
-        mensagemTISS['@_xmlns:ans'] = "http://www.ans.gov.br/padroes/tiss/schemas";
-        mensagemTISS['@_xsi:schemaLocation'] = "http://www.ans.gov.br/padroes/tiss/schemas tissV4_01_00.xsd";
+    // Find the actual root element, which should be 'ans:mensagemTISS'
+    let rootTissMessageObject = parsedObject['ans:mensagemTISS'];
+
+    // If 'ans:mensagemTISS' is not directly at the root, try to find it nested
+    if (!rootTissMessageObject) {
+      if (Array.isArray(parsedObject)) {
+        const tissMessageNode = parsedObject.find(node => node['ans:mensagemTISS']);
+        if (tissMessageNode) {
+          rootTissMessageObject = tissMessageNode['ans:mensagemTISS'];
+        }
+      } else {
+        const keys = Object.keys(parsedObject);
+        for (const key of keys) {
+          if (typeof parsedObject[key] === 'object' && parsedObject[key] !== null && parsedObject[key]['ans:mensagemTISS']) {
+            rootTissMessageObject = parsedObject[key]['ans:mensagemTISS'];
+            break;
+          }
+        }
       }
     }
 
-    // Remove quaisquer propriedades de namespace que possam ter sido parseadas incorretamente como elementos no nível superior
-    const namespaceKeys = ['@_xmlns:xsi', '@_xmlns:ans', '@_xsi:schemaLocation'];
-    for (const key of namespaceKeys) {
-      if (rootElement[key]) {
-        delete rootElement[key];
-      }
+    if (!rootTissMessageObject || typeof rootTissMessageObject !== 'object') {
+      console.error("Could not find 'ans:mensagemTISS' as the root element object after parsing for formatting. Building raw object.");
+      return formattedBuilder.build(parsedObject);
     }
 
-    return formattedBuilder.build(rootElement);
+    // Ensure namespace attributes are present on the root 'ans:mensagemTISS' object
+    rootTissMessageObject['@_xmlns:xsi'] = "http://www.w3.org/2001/XMLSchema-instance";
+    rootTissMessageObject['@_xmlns:ans'] = "http://www.ans.gov.br/padroes/tiss/schemas";
+    rootTissMessageObject['@_xsi:schemaLocation'] = "http://www.ans.gov.br/padroes/tiss/schemas tissV4_01_00.xsd";
+    
+    const objectToBuild = { "ans:mensagemTISS": rootTissMessageObject };
+
+    return formattedBuilder.build(objectToBuild);
   } catch (error) {
     console.error("Error formatting XML content:", error);
     return xmlContent;
@@ -545,7 +567,8 @@ export const deleteGuide = (xmlContent: string, guideId: string): string => {
     findAndDelete(xmlObj);
 
     if (guideFoundAndDeleted) {
-      return internalBuilder.build(getRootElement(xmlObj)); // Passa o elemento raiz correto
+      // Rebuild the XML, ensuring the root element and namespaces are correct
+      return rebuildXml(internalBuilder.build(xmlObj));
     } else {
       console.warn(`Guia com ID ${guideId} não encontrada para exclusão.`);
       return xmlContent;
