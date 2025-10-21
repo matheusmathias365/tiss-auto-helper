@@ -16,13 +16,20 @@ interface ProcessingLog {
   timestamp: Date;
 }
 
+// Define a type for processed XML files
+interface ProcessedXmlFile {
+  name: string;
+  content: string;
+}
+
 const AutomaticMode = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
   const [logs, setLogs] = useState<ProcessingLog[]>([]);
   const [originalFileName, setOriginalFileName] = useState<string>("");
-  const [processedContentForDownload, setProcessedContentForDownload] = useState<string | Blob | null>(null); // Stores XML string or ZIP Blob
+  // Changed to store an array of processed XML file objects
+  const [processedXmlFiles, setProcessedXmlFiles] = useState<ProcessedXmlFile[]>([]); 
   const [currentGuides, setCurrentGuides] = useState<any[]>([]);
   const [currentTotalValue, setCurrentTotalValue] = useState<number>(0);
   const [showFaturistaNameModal, setShowFaturistaNameModal] = useState(false);
@@ -51,16 +58,9 @@ const AutomaticMode = () => {
     totalChanges += structureResult.changes;
     if (structureResult.changes > 0) {
       addLog("Estrutura corrigida", `${structureResult.changes} correções`);
-      toast({
-        title: "Estrutura corrigida",
-        description: `${structureResult.changes} tags corrigidas com sucesso.`,
-      });
+      // Removed toast here to avoid spamming for each file in a ZIP
     } else {
       addLog("Estrutura verificada", "Nenhuma correção necessária");
-      toast({
-        title: "Estrutura verificada",
-        description: "Nenhuma correção de estrutura necessária.",
-      });
     }
 
     // 2. Padronizar Tipo de Atendimento
@@ -69,16 +69,8 @@ const AutomaticMode = () => {
     totalChanges += tipoResult.changes;
     if (tipoResult.changes > 0) {
       addLog("Tipo de Atendimento padronizado", `${tipoResult.changes} campos`);
-      toast({
-        title: "Padronização de Tipo de Atendimento",
-        description: `${tipoResult.changes} campos 'tipoAtendimento' atualizados.`,
-      });
     } else {
       addLog("Tipo de Atendimento verificado", "Nenhuma alteração");
-      toast({
-        title: "Padronização de Tipo de Atendimento",
-        description: "Nenhuma alteração em 'tipoAtendimento' necessária.",
-      });
     }
 
     // 3. Padronizar CBOS
@@ -87,16 +79,8 @@ const AutomaticMode = () => {
     totalChanges += cbosResult.changes;
     if (cbosResult.changes > 0) {
       addLog("CBOS padronizado", `${cbosResult.changes} campos`);
-      toast({
-        title: "Padronização de CBOS",
-        description: `${cbosResult.changes} campos 'CBOS' atualizados.`,
-      });
     } else {
       addLog("CBOS verificado", "Nenhuma alteração");
-      toast({
-        title: "Padronização de CBOS",
-        description: "Nenhuma alteração em 'CBOS' necessária.",
-      });
     }
 
     return { content: processedContent, totalChanges };
@@ -123,6 +107,9 @@ const AutomaticMode = () => {
     setProcessing(true);
     setLogs([]);
     setOriginalFileName(file.name);
+    setProcessedXmlFiles([]); // Clear previous files
+    setCurrentGuides([]);
+    setCurrentTotalValue(0);
 
     try {
       if (file.name.endsWith('.zip')) {
@@ -139,6 +126,7 @@ const AutomaticMode = () => {
         return;
       }
     } catch (error) {
+      console.error("Error during file upload/processing:", error);
       toast({
         title: "Erro no processamento",
         description: "Ocorreu um erro ao processar o arquivo.",
@@ -191,7 +179,7 @@ const AutomaticMode = () => {
       const guides = extractGuides(rebuiltFinalContent);
       const totalValue = guides.reduce((sum, guide) => sum + guide.valorTotalGeral, 0);
 
-      setProcessedContentForDownload(rebuiltFinalContent); // Store XML string
+      setProcessedXmlFiles([{ name: file.name, content: rebuiltFinalContent }]); // Store as array
       setCurrentGuides(guides);
       setCurrentTotalValue(totalValue);
       
@@ -216,10 +204,10 @@ const AutomaticMode = () => {
       description: `O arquivo ${file.name} foi carregado com sucesso.`,
     });
 
-    const outputZip = new JSZip();
     let totalFiles = 0;
     let totalChanges = 0;
     const allGuides: any[] = [];
+    const processedFiles: ProcessedXmlFile[] = [];
     let firstXmlContent: string | null = null; // To extract lot number from the first XML
 
     for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
@@ -228,7 +216,8 @@ const AutomaticMode = () => {
         const result = processXMLContent(content);
         const finalContentWithEpilogo = addEpilogo(result.content);
         const rebuiltFileContent = rebuildXml(finalContentWithEpilogo); // Reconstruir sem formatação
-        outputZip.file(filename, rebuiltFileContent);
+        
+        processedFiles.push({ name: filename, content: rebuiltFileContent });
         totalFiles++;
         totalChanges += result.totalChanges;
         
@@ -249,8 +238,7 @@ const AutomaticMode = () => {
 
     const totalValue = allGuides.reduce((sum, guide) => sum + guide.valorTotalGeral, 0);
 
-    const zipBlob = await outputZip.generateAsync({ type: "blob" });
-    setProcessedContentForDownload(zipBlob); // Store ZIP Blob
+    setProcessedXmlFiles(processedFiles); // Store array of processed XML files
     setCurrentGuides(allGuides);
     setCurrentTotalValue(totalValue);
     
@@ -263,7 +251,7 @@ const AutomaticMode = () => {
   };
 
   const handleConfirmFaturistaName = async (faturistaName: string, xmlContentForLot?: string) => {
-    if (!processedContentForDownload || !originalFileName) {
+    if (processedXmlFiles.length === 0 || !originalFileName) {
       toast({
         title: "Erro no download",
         description: "Nenhum conteúdo processado para baixar.",
@@ -277,18 +265,25 @@ const AutomaticMode = () => {
     let downloadName = originalFileName;
     let contentForLotExtraction = xmlContentForLot;
 
-    if (processedContentForDownload instanceof Blob) {
-      // It's a ZIP file
-      downloadBlob = processedContentForDownload;
-      downloadName = originalFileName; // Keep original name for ZIP
+    // Determine the output filename based on the original file and output format
+    const baseName = originalFileName.replace(/\.(xml|zip)$/i, '');
+    if (processedXmlFiles.length === 1 && !originalFileName.endsWith('.zip')) {
+      // Single XML file, download as XML if original was XML
+      downloadBlob = new Blob([processedXmlFiles[0].content], { type: 'application/xml' });
+      downloadName = `${baseName}.xml`;
+      contentForLotExtraction = processedXmlFiles[0].content;
     } else {
-      // It's a single XML string, wrap it in a ZIP
+      // Multiple XML files, or original was ZIP, or single XML but output as ZIP
       const zip = new JSZip();
-      const baseName = originalFileName.replace('.xml', '');
-      zip.file(`${baseName}.xml`, processedContentForDownload);
+      processedXmlFiles.forEach(file => {
+        zip.file(file.name, file.content);
+      });
       downloadBlob = await zip.generateAsync({ type: "blob" });
       downloadName = `${baseName}.zip`;
-      contentForLotExtraction = processedContentForDownload; // Use the single XML content for lot number
+      // For lot number, use the first file's content if available
+      if (processedXmlFiles.length > 0 && !contentForLotExtraction) {
+        contentForLotExtraction = processedXmlFiles[0].content;
+      }
     }
 
     if (downloadBlob) {
@@ -317,7 +312,7 @@ const AutomaticMode = () => {
     const lotNumber = contentForLotExtraction ? extractLotNumber(contentForLotExtraction) : undefined; // Extract lot number
     openPrintableProtocol({
       fileName: originalFileName,
-      guides: currentGuides,
+      guides: currentGuides, // These are already extracted from all processed files
       totalValue: currentTotalValue,
       faturistaName: faturistaName,
       convenioName: "Modo Automático", // Nome genérico para o modo automático
@@ -325,7 +320,7 @@ const AutomaticMode = () => {
     });
 
     setProcessing(false);
-    setProcessedContentForDownload(null);
+    setProcessedXmlFiles([]); // Clear files after download
     setCurrentGuides([]);
     setCurrentTotalValue(0);
   };
@@ -430,7 +425,7 @@ const AutomaticMode = () => {
           setShowFaturistaNameModal(false);
           setProcessing(false); // Allow new uploads if modal is closed
         }}
-        onConfirm={(name) => handleConfirmFaturistaName(name, processedContentForDownload instanceof Blob ? undefined : processedContentForDownload || undefined)}
+        onConfirm={(name) => handleConfirmFaturistaName(name, processedXmlFiles.length > 0 ? processedXmlFiles[0].content : undefined)}
       />
     </div>
   );

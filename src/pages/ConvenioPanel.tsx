@@ -207,7 +207,7 @@ const ConvenioPanel = () => {
         description: `${tipoResult.changes} campos 'tipoAtendimento' atualizados.`,
       });
     } else {
-      addLog("tipoAtendimento verificado", "info", "Nenhuma alteração");
+      addLog("Padronização de Tipo de Atendimento", "info", "Nenhuma alteração");
       toast({
         title: "Padronização de Tipo de Atendimento",
         description: "Nenhuma alteração em 'tipoAtendimento' necessária.",
@@ -223,7 +223,7 @@ const ConvenioPanel = () => {
         description: `${cbosResult.changes} campos 'CBOS' atualizados.`,
       });
     } else {
-      addLog("CBOS verificado", "info", "Nenhuma alteração");
+      addLog("Padronização de CBOS", "info", "Nenhuma alteração");
       toast({
         title: "Padronização de CBOS",
         description: "Nenhuma alteração em 'CBOS' necessária.",
@@ -241,7 +241,7 @@ const ConvenioPanel = () => {
     const finalContent = addEpilogo(content);
     const rebuiltFinalContent = rebuildXml(finalContent); // Reconstruir sem formatação para TISS
     setXmlContent(rebuiltFinalContent);
-    setDownloadContent(rebuiltFinalContent);
+    setDownloadContent(rebuiltFinalContent); // Set the content for download
     
     setGuides(extractGuides(rebuiltFinalContent));
 
@@ -254,9 +254,9 @@ const ConvenioPanel = () => {
   };
 
   const handleDownloadTrigger = () => {
-    // O conteúdo para download deve ser reconstruído (sem formatação) e ter o epílogo
+    // The content for download should be the current xmlContent, rebuilt and with epilogo
     const contentWithEpilogo = addEpilogo(xmlContent);
-    const finalContentForDownload = rebuildXml(contentWithEpilogo); // Garante que está estruturalmente correto, sem formatação
+    const finalContentForDownload = rebuildXml(contentWithEpilogo); // Ensures structural correctness
     setDownloadContent(finalContentForDownload);
 
     const storedFaturistaName = loadFaturistaName();
@@ -268,22 +268,30 @@ const ConvenioPanel = () => {
   };
 
   const handleConfirmFaturistaName = async (faturistaName: string) => {
-    if (!downloadContent || !fileName) return;
+    if (!downloadContent || !fileName) {
+      toast({
+        title: "Erro no download",
+        description: "Nenhum conteúdo processado para baixar.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     let finalDownloadBlob: Blob | null = null;
     let downloadFileName = fileName;
 
+    // Determine the output filename based on the original file and output format
+    const baseName = fileName.replace(/\.(xml|zip)$/i, '');
+
     if (profile.outputFormat === 'zip') {
       const zip = new JSZip();
       const xmlFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
-      zip.file(xmlFileName, downloadContent); // Usar downloadContent (já reconstruído sem formatação)
+      zip.file(xmlFileName, downloadContent); // Use downloadContent (already rebuilt XML string)
       finalDownloadBlob = await zip.generateAsync({ type: "blob" });
-      downloadFileName = fileName.endsWith('.xml') 
-        ? fileName.replace('.xml', '.zip')
-        : `${fileName}.zip`;
+      downloadFileName = `${baseName}.zip`;
     } else {
-      finalDownloadBlob = new Blob([downloadContent], { type: 'application/xml' }); // Usar downloadContent
-      downloadFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
+      finalDownloadBlob = new Blob([downloadContent], { type: 'application/xml' }); // Use downloadContent
+      downloadFileName = `${baseName}.xml`;
     }
 
     if (finalDownloadBlob) {
@@ -319,7 +327,7 @@ const ConvenioPanel = () => {
       lotNumber: lotNumber,
     });
 
-    setDownloadContent("");
+    setDownloadContent(""); // Clear download content after use
   };
 
   const handleFixStructure = () => {
