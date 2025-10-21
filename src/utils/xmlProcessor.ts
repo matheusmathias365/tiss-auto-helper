@@ -1,5 +1,5 @@
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
-import md5 from 'js-md5'; // Alterado para js-md5
+import * as md5 from 'js-md5'; // Alterado para importar como namespace
 
 export interface ProcessingResult {
   content: string;
@@ -487,7 +487,7 @@ export const calculateHash = (xmlContent: string): string => {
   const contentWithoutEpilogo = xmlContent.replace(/<ans:epilogo>[\s\S]*?<\/ans:epilogo>/g, '');
   
   // Calcula o hash do conteúdo atualizado usando js-md5 com encoding latin1
-  return md5(contentWithoutEpilogo, { encoding: 'latin1' });
+  return md5.hex(contentWithoutEpilogo, { encoding: 'latin1' }); // Usando md5.hex para obter o hash
 };
 
 // Adiciona o epílogo com o hash ao XML
