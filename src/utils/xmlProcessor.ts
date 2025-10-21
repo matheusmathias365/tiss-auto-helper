@@ -379,29 +379,31 @@ export const extractGuides = (xmlContent: string): Guide[] => {
 
       if (rawValorTotalGeral) {
         let sanitizedValue = rawValorTotalGeral.trim();
-        // Remove todos os caracteres que não são dígitos, vírgulas ou pontos
+        
+        // Remove all characters that are not digits, commas, or dots
         sanitizedValue = sanitizedValue.replace(/[^0-9.,]/g, '');
 
-        const commaCount = (sanitizedValue.match(/,/g) || []).length;
-        const dotCount = (sanitizedValue.match(/\./g) || []).length;
+        // Determine if the last separator is a comma (Brazilian style) or a dot (US style)
+        const lastCommaIndex = sanitizedValue.lastIndexOf(',');
+        const lastDotIndex = sanitizedValue.lastIndexOf('.');
 
-        if (commaCount === 1 && dotCount === 0) { // Ex: "123,45" (decimal com vírgula)
-            sanitizedValue = sanitizedValue.replace(',', '.');
-        } else if (dotCount === 1 && commaCount === 0) { // Ex: "123.45" (decimal com ponto)
-            // Já está no formato correto para parseFloat
-        } else if (commaCount > 0 && dotCount > 0) { // Ex: "1.234,56" (BR) ou "1,234.56" (US)
-            const lastCommaIndex = sanitizedValue.lastIndexOf(',');
-            const lastDotIndex = sanitizedValue.lastIndexOf('.');
-
-            if (lastCommaIndex > lastDotIndex) { // Provavelmente formato Brasileiro: "1.234,56"
-                sanitizedValue = sanitizedValue.replace(/\./g, ''); // Remove separadores de milhares (pontos)
-                sanitizedValue = sanitizedValue.replace(/,/g, '.'); // Troca vírgula decimal por ponto
-            } else { // Provavelmente formato Americano: "1,234.56"
-                sanitizedValue = sanitizedValue.replace(/,/g, ''); // Remove separadores de milhares (vírgulas)
-                // O ponto decimal já está correto
-            }
+        if (lastCommaIndex > lastDotIndex) {
+          // Brazilian format (e.g., "1.234.567,89")
+          // Remove all dots (thousands separator)
+          sanitizedValue = sanitizedValue.replace(/\./g, '');
+          // Replace the comma (decimal separator) with a dot
+          sanitizedValue = sanitizedValue.replace(/,/g, '.');
+        } else if (lastDotIndex > lastCommaIndex) {
+          // US format (e.g., "1,234,567.89")
+          // Remove all commas (thousands separator)
+          sanitizedValue = sanitizedValue.replace(/,/g, '');
+          // The dot (decimal separator) is already correct
         }
-        
+        // If only one separator exists, or no separators, parseFloat will handle it.
+        // E.g., "123,45" -> lastCommaIndex=3, lastDotIndex=-1 -> BR format -> "123.45"
+        // E.g., "123.45" -> lastCommaIndex=-1, lastDotIndex=3 -> US format -> "123.45"
+        // E.g., "12345" -> no change -> "12345"
+
         const parsedValue = parseFloat(sanitizedValue);
         if (isNaN(parsedValue)) {
             console.warn(`Falha ao parsear valorTotalGeral para guia ${numeroGuiaPrestador}. Valor bruto: "${rawValorTotalGeral}", Sanitizado: "${sanitizedValue}". Usando 0.`);
@@ -669,32 +671,52 @@ export const validateTissCompliance = (xmlContent: string): string[] => {
     return results;
   }
 
-  // 1. Check for required TISS tags
-  TISS_TAGS_DATABASE.filter(tag => tag.required).forEach(requiredTag => {
-    // The tag in TISS_TAGS_DATABASE might be 'ans:tagname' or just 'tagname'
+  // Tags obrigatórias que devem existir no nível do documento (ou em um nível superior, mas não por guia)
+  const documentLevelRequiredTags = TISS_TAGS_DATABASE.filter(tag => 
+    tag.required && (tag.tag === 'ans:epilogo' || tag.tag === 'ans:mensagemTISS' || tag.tag === 'ans:cabecalho' || tag.tag === 'ans:identificacaoTransacao' || tag.tag === 'ans:origem' || tag.tag === 'ans:destino' || tag.tag === 'ans:Padrao' || tag.tag === 'ans:prestadorParaOperadora' || tag.tag === 'ans:loteGuias' || tag.tag === 'ans:guiasTISS')
+  );
+
+  documentLevelRequiredTags.forEach(requiredTag => {
     const possibleTagNames = [requiredTag.tag, requiredTag.tag.replace('ans:', '')];
     if (!tagExists(xmlObj, possibleTagNames)) {
-      results.push(`❌ ERRO: Tag obrigatória '${requiredTag.tag}' (${requiredTag.name}) não encontrada.`);
+      results.push(`❌ ERRO: Tag obrigatória de documento '${requiredTag.tag}' (${requiredTag.name}) não encontrada.`);
     }
   });
 
-  // 2. Check CBO-S and Procedure compatibility for each guide
+  // Tags obrigatórias que devem existir DENTRO de cada guia (ans:guiaSP-SADT)
+  const guideLevelRequiredTags = TISS_TAGS_DATABASE.filter(tag => 
+    tag.required && !documentLevelRequiredTags.some(docTag => docTag.tag === tag.tag)
+  );
+
   const rawGuideObjects = deepFindGuideObjects(xmlObj);
-  rawGuideObjects.forEach((rawGuideObj: any) => {
-    const guideNumero = findNestedTagValue(rawGuideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']) || 'N/A';
-    const cbosCode = findNestedTagValue(rawGuideObj, ['ans:CBOS', 'CBOS']);
-    const procedureCode = findNestedTagValue(rawGuideObj, ['ans:codigoProcedimento', 'codigoProcedimento']);
+  if (rawGuideObjects.length === 0) {
+    results.push("⚠️ ALERTA: Nenhuma guia (ans:guiaSP-SADT) encontrada para validação de tags obrigatórias de guia.");
+  } else {
+    rawGuideObjects.forEach((rawGuideObj: any) => {
+      const guideNumero = findNestedTagValue(rawGuideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']) || 'N/A';
+      
+      guideLevelRequiredTags.forEach(requiredTag => {
+        const possibleTagNames = [requiredTag.tag, requiredTag.tag.replace('ans:', '')];
+        if (!tagExists(rawGuideObj, possibleTagNames)) {
+          results.push(`❌ ERRO (Guia ${guideNumero}): Tag obrigatória '${requiredTag.tag}' (${requiredTag.name}) não encontrada.`);
+        }
+      });
 
-    if (cbosCode && procedureCode) {
-      const compatibility = validateCBOSProcedureCompatibility(cbosCode, procedureCode);
-      if (!compatibility.compatible) {
-        results.push(`⚠️ ALERTA (Guia ${guideNumero}): ${compatibility.warning}`);
+      // Check CBO-S and Procedure compatibility for each guide
+      const cbosCode = findNestedTagValue(rawGuideObj, ['ans:CBOS', 'CBOS']);
+      const procedureCode = findNestedTagValue(rawGuideObj, ['ans:codigoProcedimento', 'codigoProcedimento']);
+
+      if (cbosCode && procedureCode) {
+        const compatibility = validateCBOSProcedureCompatibility(cbosCode, procedureCode);
+        if (!compatibility.compatible) {
+          results.push(`⚠️ ALERTA (Guia ${guideNumero}): ${compatibility.warning}`);
+        }
+      } else {
+        if (!cbosCode) results.push(`⚠️ ALERTA (Guia ${guideNumero}): CBO-S não encontrado para validação de compatibilidade.`);
+        if (!procedureCode) results.push(`⚠️ ALERTA (Guia ${guideNumero}): Código de Procedimento não encontrado para validação de compatibilidade.`);
       }
-    } else {
-      if (!cbosCode) results.push(`⚠️ ALERTA (Guia ${guideNumero}): CBO-S não encontrado para validação de compatibilidade.`);
-      if (!procedureCode) results.push(`⚠️ ALERTA (Guia ${guideNumero}): Código de Procedimento não encontrado para validação de compatibilidade.`);
-    }
-  });
+    });
+  }
 
   if (results.length === 0) {
     results.push("✅ Validação TISS OK: Nenhuma inconsistência crítica encontrada.");
