@@ -17,34 +17,13 @@ export interface Guide {
   dataExecucao: string;
 }
 
-// Safe XML parser configuration to prevent XXE and entity expansion attacks
-const parserOptions = {
-  ignoreAttributes: false,
-  attributeNamePrefix: "@_", // Use um prefixo para atributos quando preserveOrder é true
-  textNodeName: "#text",
-  ignoreDeclaration: false, // Definido como false para que o parser capture a declaração XML
-  preserveOrder: true,    // Mantido como true para preservar a ordem original da estrutura XML
-  parseTagValue: false,
-  trimValues: false,
-  processEntities: false,
-  allowBooleanAttributes: true,
-  stopNodes: ["*.CDATA"],
-  // Força que 'ans:guiaSP-SADT' e 'guiaSP-SADT' sejam sempre arrays
-  isArray: (tagName: string, jPath: string, is  : boolean) => {
-    if (tagName === "ans:guiaSP-SADT" || tagName === "guiaSP-SADT") {
-      return true;
-    }
-    return is;
-  }
-};
-
-// New parser options for extraction, simpler object structure
-const parserOptionsForExtraction = {
+// Standardized parser options for easier object manipulation
+const commonParserOptions = {
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
   textNodeName: "#text",
-  ignoreDeclaration: true, // No need for declaration when extracting data
-  preserveOrder: false,    // Key change: get a simpler object structure
+  ignoreDeclaration: true, // Ignore declaration for internal processing
+  preserveOrder: false,    // KEY CHANGE: Use simpler object structure
   parseTagValue: false,
   trimValues: true,        // Trim values during parsing
   processEntities: false,
@@ -60,12 +39,11 @@ const parserOptionsForExtraction = {
 
 const defaultBuilderOptions = {
   ignoreAttributes: false,
-  attributeNamePrefix: "@_", // Corresponde ao prefixo do parser
+  attributeNamePrefix: "@_",
   textNodeName: "#text",
-  format: false, // <--- CRITICAL CHANGE: Set to false by default for TISS validation
+  format: false, // Default to no formatting for TISS validation
   indentBy: "  ",
   processEntities: false,
-  // Inclui explicitamente a declaração XML
   declaration: {
     include: true,
     attributes: {
@@ -75,44 +53,12 @@ const defaultBuilderOptions = {
   },
 };
 
-// Renomeado de parseAndBuildXml para rebuildXml para refletir seu propósito de reconstruir sem formatar por padrão
 export const rebuildXml = (xmlContent: string): string => {
   try {
-    const parser = new XMLParser(parserOptions);
-    const builder = new XMLBuilder(defaultBuilderOptions); // Usa defaultBuilderOptions (format: false)
+    const parser = new XMLParser(commonParserOptions); // Use commonParserOptions
+    const builder = new XMLBuilder(defaultBuilderOptions);
     let xmlObj = parser.parse(xmlContent);
-
-    // Correção manual para atributos de namespace se eles forem parseados como elementos
-    let rootElementNode: any = null;
-    if (Array.isArray(xmlObj) && xmlObj.length > 0) {
-      rootElementNode = xmlObj.find(node => Object.keys(node)[0] === 'ans:mensagemTISS');
-    }
-
-    if (rootElementNode && rootElementNode['ans:mensagemTISS'] && Array.isArray(rootElementNode['ans:mensagemTISS'])) {
-      const rootChildren = rootElementNode['ans:mensagemTISS'];
-      const newRootChildren: any[] = [];
-      const namespaceAttrs: { [key: string]: string } = {};
-
-      for (let i = 0; i < rootChildren.length; i++) {
-        const child = rootChildren[i];
-        const childKey = Object.keys(child)[0];
-
-        if (childKey === 'xmlns:xsi' || childKey === 'xmlns:ans' || childKey === 'xsi:schemaLocation') {
-          const attrValue = child[childKey]['#text'];
-          if (attrValue) {
-            namespaceAttrs[`@_${childKey}`] = attrValue;
-          }
-        } else {
-          newRootChildren.push(child);
-        }
-      }
-
-      if (Object.keys(namespaceAttrs).length > 0) {
-        Object.assign(rootElementNode, namespaceAttrs);
-        rootElementNode['ans:mensagemTISS'] = newRootChildren;
-      }
-    }
-
+    // No more manual namespace correction needed with preserveOrder: false
     return builder.build(xmlObj);
   } catch (error) {
     console.error("Error rebuilding XML:", error);
@@ -120,49 +66,16 @@ export const rebuildXml = (xmlContent: string): string => {
   }
 };
 
-// Nova função para formatação explícita (para exibição ou download opcional)
 export const formatXmlContent = (xmlContent: string): string => {
   try {
-    const parser = new XMLParser(parserOptions);
-    // Cria um novo builder com formatação ativada
+    const parser = new XMLParser(commonParserOptions); // Use commonParserOptions
     const formattedBuilder = new XMLBuilder({ ...defaultBuilderOptions, format: true, indentBy: "  " });
     let xmlObj = parser.parse(xmlContent);
-
-    // Aplica a mesma correção manual de namespace se necessário
-    let rootElementNode: any = null;
-    if (Array.isArray(xmlObj) && xmlObj.length > 0) {
-      rootElementNode = xmlObj.find(node => Object.keys(node)[0] === 'ans:mensagemTISS');
-    }
-
-    if (rootElementNode && rootElementNode['ans:mensagemTISS'] && Array.isArray(rootElementNode['ans:mensagemTISS'])) {
-      const rootChildren = rootElementNode['ans:mensagemTISS'];
-      const newRootChildren: any[] = [];
-      const namespaceAttrs: { [key: string]: string } = {};
-
-      for (let i = 0; i < rootChildren.length; i++) {
-        const child = rootChildren[i];
-        const childKey = Object.keys(child)[0];
-
-        if (childKey === 'xmlns:xsi' || childKey === 'xmlns:ans' || childKey === 'xsi:schemaLocation') {
-          const attrValue = child[childKey]['#text'];
-          if (attrValue) {
-            namespaceAttrs[`@_${childKey}`] = attrValue;
-          }
-        } else {
-          newRootChildren.push(child);
-        }
-      }
-
-      if (Object.keys(namespaceAttrs).length > 0) {
-        Object.assign(rootElementNode, namespaceAttrs);
-        rootElementNode['ans:mensagemTISS'] = newRootChildren;
-      }
-    }
-
+    // No more manual namespace correction needed with preserveOrder: false
     return formattedBuilder.build(xmlObj);
   } catch (error) {
     console.error("Error formatting XML content:", error);
-    return xmlContent; // Retorna o conteúdo original em caso de erro
+    return xmlContent;
   }
 };
 
@@ -278,18 +191,27 @@ const findNestedTagValue = (obj: any, tagNames: string[]): string | undefined =>
   if (typeof obj !== 'object' || obj === null) return undefined;
 
   for (const tagName of tagNames) {
+    // Check for direct property or property with '#text'
     if (obj[tagName] !== undefined) {
       const value = obj[tagName];
-      // If the value is an object and contains '#text', extract it. Otherwise, convert directly to string.
       return typeof value === 'object' && '#text' in value ? String(value['#text']) : String(value);
     }
   }
 
-  // Recursively search in nested objects
+  // Recursively search in nested objects and arrays
   for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object' && obj[key] !== null) {
-      const result = findNestedTagValue(obj[key], tagNames);
-      if (result !== undefined) return result;
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      if (typeof obj[key] === 'object' && obj[key] !== null) {
+        if (Array.isArray(obj[key])) {
+          for (const item of obj[key]) {
+            const result = findNestedTagValue(item, tagNames);
+            if (result !== undefined) return result;
+          }
+        } else {
+          const result = findNestedTagValue(obj[key], tagNames);
+          if (result !== undefined) return result;
+        }
+      }
     }
   }
   return undefined;
@@ -306,8 +228,16 @@ const tagExists = (obj: any, tagNames: string[]): boolean => {
   }
 
   for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object' && obj[key] !== null) {
-      if (tagExists(obj[key], tagNames)) return true;
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      if (typeof obj[key] === 'object' && obj[key] !== null) {
+        if (Array.isArray(obj[key])) {
+          for (const item of obj[key]) {
+            if (tagExists(item, tagNames)) return true;
+          }
+        } else {
+          if (tagExists(obj[key], tagNames)) return true;
+        }
+      }
     }
   }
   return false;
@@ -327,8 +257,6 @@ const deepFindGuideObjects = (obj: any): any[] => {
       if (Array.isArray(obj[tagName])) {
         guideObjects.push(...obj[tagName]);
       } else if (typeof obj[tagName] === 'object') {
-        // Even if it's a single object, if isArray is true, it should already be in an array.
-        // But as a safeguard, push it if it's a direct object.
         guideObjects.push(obj[tagName]);
       }
     }
@@ -352,7 +280,7 @@ const deepFindGuideObjects = (obj: any): any[] => {
 // Extrai guias do XML de forma robusta
 export const extractGuides = (xmlContent: string): Guide[] => {
   const guides: Guide[] = [];
-  const parser = new XMLParser(parserOptionsForExtraction);
+  const parser = new XMLParser(commonParserOptions); // Use commonParserOptions
   
   try {
     const xmlObj = parser.parse(xmlContent);
@@ -515,8 +443,7 @@ export const extractGuides = (xmlContent: string): Guide[] => {
 // Exclui uma guia do XML usando parsing e reconstrução
 export const deleteGuide = (xmlContent: string, guideId: string): string => {
   try {
-    const parser = new XMLParser(parserOptionsForExtraction); // Usar as novas opções de parser
-    // Usa um builder com formatação desativada para esta operação interna
+    const parser = new XMLParser(commonParserOptions); // Use commonParserOptions
     const internalBuilder = new XMLBuilder({ ...defaultBuilderOptions, format: false });
     let xmlObj = parser.parse(xmlContent);
 
@@ -528,7 +455,7 @@ export const deleteGuide = (xmlContent: string, guideId: string): string => {
 
       const guiaSPSADTKeys = ['ans:guiaSP-SADT', 'guiaSP-SADT'];
       for (const key of guiaSPSADTKeys) {
-        if (Array.isArray(obj[key])) { // Devido à opção isArray, obj[key] deve ser sempre um array aqui
+        if (Array.isArray(obj[key])) {
           const initialLength = obj[key].length;
           obj[key] = obj[key].filter((guideObj: any) => {
             const currentGuideNumero = findNestedTagValue(guideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']);
@@ -537,18 +464,33 @@ export const deleteGuide = (xmlContent: string, guideId: string): string => {
           if (obj[key].length < initialLength) {
             guideFoundAndDeleted = true;
             if (obj[key].length === 0) {
-              delete obj[key]; // Remove a propriedade se o array ficar vazio
+              // If the array becomes empty, remove the property itself
+              delete obj[key];
             }
-            return; // Para a busca após a exclusão
+            return; // Stop searching in this branch
           }
+        } else if (typeof obj[key] === 'object') { // Handle single object case if not an array
+            const currentGuideNumero = findNestedTagValue(obj[key], ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']);
+            if (currentGuideNumero === guideId) {
+                delete obj[key];
+                guideFoundAndDeleted = true;
+                return;
+            }
         }
       }
 
-      // Continua a busca recursiva em propriedades filhas
+      // Continue recursive search in child properties
       for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object') {
-          findAndDelete(obj[key]);
-          if (guideFoundAndDeleted) return; // Para se a guia já foi encontrada e excluída
+          if (Array.isArray(obj[key])) {
+            for (const item of obj[key]) {
+              findAndDelete(item);
+              if (guideFoundAndDeleted) return;
+            }
+          } else {
+            findAndDelete(obj[key]);
+            if (guideFoundAndDeleted) return;
+          }
         }
       }
     };
@@ -556,14 +498,13 @@ export const deleteGuide = (xmlContent: string, guideId: string): string => {
     findAndDelete(xmlObj);
 
     if (guideFoundAndDeleted) {
-      return internalBuilder.build(xmlObj); // Constrói sem formatação
+      return internalBuilder.build(xmlObj);
     } else {
       console.warn(`Guia com ID ${guideId} não encontrada para exclusão.`);
-      return xmlContent; // Retorna o conteúdo original se a guia não for encontrada
+      return xmlContent;
     }
 
-  } catch (error)
-  {
+  } catch (error) {
     console.error("Erro ao excluir guia usando parsing XML:", error);
     // Fallback para regex se o parsing falhar
     const guideRegex = new RegExp(`<ans:guiaSP-SADT>[\\s\\S]*?<ans:numeroGuiaPrestador>${guideId}<\\/ans:numeroGuiaPrestador>[\\s\\S]*?<\\/ans:guiaSP-SADT>`, 'g');
@@ -682,7 +623,7 @@ export const validateProfessionalData = (xmlContent: string): string[] => {
 // Validador TISS abrangente
 export const validateTissCompliance = (xmlContent: string): string[] => {
   const results: string[] = [];
-  const parser = new XMLParser(parserOptionsForExtraction);
+  const parser = new XMLParser(commonParserOptions);
   let xmlObj: any;
 
   try {
@@ -760,7 +701,7 @@ export const downloadXML = (content: string, fileName: string) => {
 };
 
 export const extractLotNumber = (xmlContent: string): string | undefined => {
-  const parser = new XMLParser(parserOptionsForExtraction);
+  const parser = new XMLParser(commonParserOptions);
   try {
     const xmlObj = parser.parse(xmlContent);
     // Common paths for numeroLote
