@@ -1,5 +1,5 @@
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
-import * as md5 from 'js-md5'; // Alterado para importar como namespace
+import CryptoJS from 'crypto-js'; // Importando CryptoJS
 
 export interface ProcessingResult {
   content: string;
@@ -486,8 +486,8 @@ export const calculateHash = (xmlContent: string): string => {
   // Remove epílogo existente antes de calcular o hash
   const contentWithoutEpilogo = xmlContent.replace(/<ans:epilogo>[\s\S]*?<\/ans:epilogo>/g, '');
   
-  // Calcula o hash do conteúdo atualizado usando js-md5 com encoding latin1
-  return md5.hex(contentWithoutEpilogo, { encoding: 'latin1' }); // Usando md5.hex para obter o hash
+  // Calcula o hash do conteúdo atualizado usando CryptoJS
+  return CryptoJS.MD5(contentWithoutEpilogo).toString();
 };
 
 // Adiciona o epílogo com o hash ao XML
