@@ -272,8 +272,8 @@ export const cleanNullValues = (xmlContent: string): string => {
 };
 
 
-// Helper para encontrar o valor de uma tag diretamente dentro de um objeto (não recursivo)
-const getDirectTagValue = (obj: any, tagNames: string[]): string | undefined => {
+// Helper para encontrar o valor de uma tag em um objeto XML parseado com preserveOrder: false, recursivamente
+const findNestedTagValue = (obj: any, tagNames: string[]): string | undefined => {
   if (typeof obj !== 'object' || obj === null) return undefined;
 
   for (const tagName of tagNames) {
@@ -281,6 +281,14 @@ const getDirectTagValue = (obj: any, tagNames: string[]): string | undefined => 
       const value = obj[tagName];
       // If the value is an object and contains '#text', extract it. Otherwise, convert directly to string.
       return typeof value === 'object' && '#text' in value ? String(value['#text']) : String(value);
+    }
+  }
+
+  // Recursively search in nested objects
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object' && obj[key] !== null) {
+      const result = findNestedTagValue(obj[key], tagNames);
+      if (result !== undefined) return result;
     }
   }
   return undefined;
@@ -337,17 +345,17 @@ export const extractGuides = (xmlContent: string): Guide[] => {
     guiaSPSADTNodes.forEach((guideObj: any) => {
       if (!guideObj) return;
 
-      const numeroGuiaPrestador = getDirectTagValue(guideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']) || 'N/A';
-      const numeroCarteira = getDirectTagValue(guideObj, ['ans:numeroCarteira', 'numeroCarteira']) || 'N/A';
-      const nomeProfissional = getDirectTagValue(guideObj, ['ans:nomeProfissional', 'nomeProfissional']) || 'N/A';
-      const dataExecucao = getDirectTagValue(guideObj, ['ans:dataExecucao', 'dataExecucao']) || 'N/A';
+      const numeroGuiaPrestador = findNestedTagValue(guideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']) || 'N/A';
+      const numeroCarteira = findNestedTagValue(guideObj, ['ans:numeroCarteira', 'numeroCarteira']) || 'N/A';
+      const nomeProfissional = findNestedTagValue(guideObj, ['ans:nomeProfissional', 'nomeProfissional']) || 'N/A';
+      const dataExecucao = findNestedTagValue(guideObj, ['ans:dataExecucao', 'dataExecucao']) || 'N/A';
       
       let valorTotalGeral = 0;
-      let rawValorTotalGeral = getDirectTagValue(guideObj, ['ans:valorTotalGeral', 'valorTotalGeral']);
+      let rawValorTotalGeral = findNestedTagValue(guideObj, ['ans:valorTotalGeral', 'valorTotalGeral']);
       
       // Prioritize ans:valorTotalGeral, then ans:valorTotal
       if (!rawValorTotalGeral) {
-        rawValorTotalGeral = getDirectTagValue(guideObj, ['ans:valorTotal', 'valorTotal']);
+        rawValorTotalGeral = findNestedTagValue(guideObj, ['ans:valorTotal', 'valorTotal']);
       }
 
       if (rawValorTotalGeral) {
@@ -481,7 +489,7 @@ export const deleteGuide = (xmlContent: string, guideId: string): string => {
         if (Array.isArray(obj[key])) { // Devido à opção isArray, obj[key] deve ser sempre um array aqui
           const initialLength = obj[key].length;
           obj[key] = obj[key].filter((guideObj: any) => {
-            const currentGuideNumero = getDirectTagValue(guideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']);
+            const currentGuideNumero = findNestedTagValue(guideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']);
             return currentGuideNumero !== guideId;
           });
           if (obj[key].length < initialLength) {
@@ -646,7 +654,7 @@ export const extractLotNumber = (xmlContent: string): string | undefined => {
   try {
     const xmlObj = parser.parse(xmlContent);
     // Common paths for numeroLote
-    const lotNumber = getDirectTagValue(xmlObj, [
+    const lotNumber = findNestedTagValue(xmlObj, [
       'ans:cabecalho.ans:numeroLote', // Specific path
       'ans:numeroLote', // Direct child of root or other high-level tag
       'numeroLote' // Without namespace
