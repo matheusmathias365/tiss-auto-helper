@@ -327,6 +327,8 @@ const deepFindGuideObjects = (obj: any): any[] => {
       if (Array.isArray(obj[tagName])) {
         guideObjects.push(...obj[tagName]);
       } else if (typeof obj[tagName] === 'object') {
+        // Even if it's a single object, if isArray is true, it should already be in an array.
+        // But as a safeguard, push it if it's a direct object.
         guideObjects.push(obj[tagName]);
       }
     }
@@ -350,14 +352,15 @@ const deepFindGuideObjects = (obj: any): any[] => {
 // Extrai guias do XML de forma robusta
 export const extractGuides = (xmlContent: string): Guide[] => {
   const guides: Guide[] = [];
-  const parser = new XMLParser(parserOptionsForExtraction); // Usar as novas opções de parser
+  const parser = new XMLParser(parserOptionsForExtraction);
   
   try {
     const xmlObj = parser.parse(xmlContent);
-    const guiaSPSADTNodes = deepFindGuideObjects(xmlObj); // Usar o novo helper
+    const guiaSPSADTNodes = deepFindGuideObjects(xmlObj);
+    console.log("extractGuides (Parser): Raw guide objects found:", guiaSPSADTNodes.length);
 
     if (guiaSPSADTNodes.length === 0) {
-      console.warn("Nenhuma tag 'ans:guiaSP-SADT' ou 'guiaSP-SADT' encontrada no XML.");
+      console.warn("extractGuides (Parser): Nenhuma tag 'ans:guiaSP-SADT' ou 'guiaSP-SADT' encontrada no XML.");
       return [];
     }
 
@@ -432,9 +435,10 @@ export const extractGuides = (xmlContent: string): Guide[] => {
         dataExecucao: dataExecucao,
       });
     });
+    console.log("extractGuides (Parser): Final number of guides extracted:", guides.length);
+    return guides;
   } catch (error) {
-    console.error("Erro ao parsear XML para extração de guias:", error);
-    // Fallback para regex se o parsing falhar, menos confiável mas evita quebras
+    console.error("extractGuides (Parser): Erro ao parsear XML para extração de guias (XMLParser). Caindo para regex fallback:", error);
     const regexGuides: Guide[] = [];
     const guideRegex = /<ans:guiaSP-SADT>([\s\S]*?)<\/ans:guiaSP-SADT>/g;
     let match;
@@ -503,10 +507,9 @@ export const extractGuides = (xmlContent: string): Guide[] => {
         dataExecucao: dataExecucao,
       });
     }
+    console.log("extractGuides (Regex Fallback): Final number of guides extracted:", regexGuides.length);
     return regexGuides;
   }
-
-  return guides;
 };
 
 // Exclui uma guia do XML usando parsing e reconstrução
