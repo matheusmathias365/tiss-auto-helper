@@ -37,6 +37,19 @@ const parserOptions = {
   }
 };
 
+// New parser options for extraction, simpler object structure
+const parserOptionsForExtraction = {
+  ignoreAttributes: false,
+  attributeNamePrefix: "@_",
+  textNodeName: "#text",
+  ignoreDeclaration: true, // No need for declaration when extracting data
+  preserveOrder: false,    // Key change: get a simpler object structure
+  parseTagValue: false,
+  trimValues: true,        // Trim values during parsing
+  processEntities: false,
+  allowBooleanAttributes: true,
+};
+
 const defaultBuilderOptions = {
   ignoreAttributes: false,
   attributeNamePrefix: "@_", // Corresponde ao prefixo do parser
@@ -252,22 +265,15 @@ export const cleanNullValues = (xmlContent: string): string => {
 };
 
 
-// Helper para recursivamente encontrar o valor de uma tag, considerando objetos com #text ou valores diretos
-const findTagValueRecursive = (obj: any, tagNames: string[]): string | undefined => {
+// Helper para encontrar o valor de uma tag em um objeto XML parseado com preserveOrder: false
+const findTagValue = (obj: any, tagNames: string[]): string | undefined => {
   if (typeof obj !== 'object' || obj === null) return undefined;
 
   for (const tagName of tagNames) {
     if (obj[tagName] !== undefined) {
       const value = obj[tagName];
-      const extractedValue = typeof value === 'object' && '#text' in value ? value['#text'] : String(value);
-      return extractedValue;
-    }
-  }
-
-  for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object') {
-      const result = findTagValueRecursive(obj[key], tagNames);
-      if (result !== undefined) return result;
+      // If the value is an object and contains '#text', extract it. Otherwise, convert directly to string.
+      return typeof value === 'object' && '#text' in value ? String(value['#text']) : String(value);
     }
   }
   return undefined;
@@ -276,48 +282,58 @@ const findTagValueRecursive = (obj: any, tagNames: string[]): string | undefined
 // Extrai guias do XML de forma robusta
 export const extractGuides = (xmlContent: string): Guide[] => {
   const guides: Guide[] = [];
-  const parser = new XMLParser(parserOptions);
+  const parser = new XMLParser(parserOptionsForExtraction); // Usar as novas opções de parser
   
   try {
     const xmlObj = parser.parse(xmlContent);
-    const allGuiaSPSADT: any[] = [];
+    
+    // Navegar para a localização potencial de guiaSP-SADT
+    const mensagemTISS = xmlObj['ans:mensagemTISS'] || xmlObj['mensagemTISS'];
+    if (!mensagemTISS) {
+      console.warn("Root tag 'ans:mensagemTISS' ou 'mensagemTISS' não encontrada.");
+      return [];
+    }
 
-    // Função recursiva para encontrar todas as tags 'ans:guiaSP-SADT' ou 'guiaSP-SADT'
-    const findGuiaSPSADTRecursive = (obj: any) => {
-      if (typeof obj !== 'object' || obj === null) return;
+    const prestadorParaOperadora = mensagemTISS['ans:prestadorParaOperadora'] || mensagemTISS['prestadorParaOperadora'];
+    if (!prestadorParaOperadora) {
+      console.warn("Tag 'ans:prestadorParaOperadora' ou 'prestadorParaOperadora' não encontrada.");
+      return [];
+    }
 
-      // Check for both prefixed and non-prefixed versions of the tag
-      const guiaSPSADTKeys = ['ans:guiaSP-SADT', 'guiaSP-SADT'];
-      for (const key of guiaSPSADTKeys) {
-        if (obj[key]) {
-          // isArray option ensures obj[key] is always an array here
-          allGuiaSPSADT.push(...obj[key]);
-        }
+    const guias = prestadorParaOperadora['ans:guias'] || prestadorParaOperadora['guias'];
+    if (!guias) {
+      console.warn("Tag 'ans:guias' ou 'guias' não encontrada.");
+      return [];
+    }
+
+    let allGuiaSPSADT: any[] = [];
+    const guiaSPSADT = guias['ans:guiaSP-SADT'] || guias['guiaSP-SADT'];
+
+    if (guiaSPSADT) {
+      if (Array.isArray(guiaSPSADT)) {
+        allGuiaSPSADT = guiaSPSADT;
+      } else {
+        allGuiaSPSADT.push(guiaSPSADT); // Caso seja uma única guia, adiciona como array de um item
       }
-
-      for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object') {
-          findGuiaSPSADTRecursive(obj[key]);
-        }
-      }
-    };
-
-    findGuiaSPSADTRecursive(xmlObj);
+    } else {
+      console.warn("Tag 'ans:guiaSP-SADT' ou 'guiaSP-SADT' não encontrada dentro de 'guias'.");
+      return [];
+    }
 
     allGuiaSPSADT.forEach((guideObj: any) => {
       if (!guideObj) return;
 
-      const numeroGuiaPrestador = findTagValueRecursive(guideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']) || 'N/A';
-      const numeroCarteira = findTagValueRecursive(guideObj, ['ans:numeroCarteira', 'numeroCarteira']) || 'N/A';
-      const nomeProfissional = findTagValueRecursive(guideObj, ['ans:nomeProfissional', 'nomeProfissional']) || 'N/A';
-      const dataExecucao = findTagValueRecursive(guideObj, ['ans:dataExecucao', 'dataExecucao']) || 'N/A';
+      const numeroGuiaPrestador = findTagValue(guideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']) || 'N/A';
+      const numeroCarteira = findTagValue(guideObj, ['ans:numeroCarteira', 'numeroCarteira']) || 'N/A';
+      const nomeProfissional = findTagValue(guideObj, ['ans:nomeProfissional', 'nomeProfissional']) || 'N/A';
+      const dataExecucao = findTagValue(guideObj, ['ans:dataExecucao', 'dataExecucao']) || 'N/A';
       
       let valorTotalGeral = 0;
-      let rawValorTotalGeral = findTagValueRecursive(guideObj, ['ans:valorTotalGeral', 'valorTotalGeral']);
+      let rawValorTotalGeral = findTagValue(guideObj, ['ans:valorTotalGeral', 'valorTotalGeral']);
       
       // Prioritize ans:valorTotalGeral, then ans:valorTotal
       if (!rawValorTotalGeral) {
-        rawValorTotalGeral = findTagValueRecursive(guideObj, ['ans:valorTotal', 'valorTotal']);
+        rawValorTotalGeral = findTagValue(guideObj, ['ans:valorTotal', 'valorTotal']);
       }
 
       if (rawValorTotalGeral) {
@@ -435,46 +451,48 @@ export const extractGuides = (xmlContent: string): Guide[] => {
 // Exclui uma guia do XML usando parsing e reconstrução
 export const deleteGuide = (xmlContent: string, guideId: string): string => {
   try {
-    const parser = new XMLParser(parserOptions);
+    const parser = new XMLParser(parserOptionsForExtraction); // Usar as novas opções de parser
     // Usa um builder com formatação desativada para esta operação interna
     const internalBuilder = new XMLBuilder({ ...defaultBuilderOptions, format: false });
     let xmlObj = parser.parse(xmlContent);
 
     let guideFoundAndDeleted = false;
 
-    // Função recursiva para encontrar e remover a guia
-    const findAndDeleteRecursive = (obj: any) => {
+    // Função para encontrar e remover a guia
+    const findAndDelete = (obj: any) => {
       if (typeof obj !== 'object' || obj === null) return;
 
-      // Check for both prefixed and non-prefixed versions of the tag
       const guiaSPSADTKeys = ['ans:guiaSP-SADT', 'guiaSP-SADT'];
       for (const key of guiaSPSADTKeys) {
-        if (obj[key] && Array.isArray(obj[key])) { // isArray ensures obj[key] is always an array
-          const initialLength = obj[key].length;
-          obj[key] = obj[key].filter((guideObj: any) => {
-            const currentGuideNumero = findTagValueRecursive(guideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']);
+        if (obj[key]) {
+          let guidesArray = Array.isArray(obj[key]) ? obj[key] : [obj[key]];
+          const initialLength = guidesArray.length;
+          guidesArray = guidesArray.filter((guideObj: any) => {
+            const currentGuideNumero = findTagValue(guideObj, ['ans:numeroGuiaPrestador', 'numeroGuiaPrestador']);
             return currentGuideNumero !== guideId;
           });
-          if (obj[key].length < initialLength) {
+          if (guidesArray.length < initialLength) {
             guideFoundAndDeleted = true;
-            if (obj[key].length === 0) {
+            if (guidesArray.length === 0) {
               delete obj[key]; // Remove a propriedade se o array ficar vazio
+            } else {
+              obj[key] = guidesArray.length === 1 ? guidesArray[0] : guidesArray; // Atribui de volta
             }
-            return; // Stop recursion in this branch after deletion
+            return; // Para a busca após a exclusão
           }
         }
       }
 
-      // Continue recursive search in child properties
+      // Continua a busca recursiva em propriedades filhas
       for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key) && typeof obj[key] === 'object') {
-          findAndDeleteRecursive(obj[key]);
-          if (guideFoundAndDeleted) return; // Stop if guide already found and deleted
+          findAndDelete(obj[key]);
+          if (guideFoundAndDeleted) return; // Para se a guia já foi encontrada e excluída
         }
       }
     };
 
-    findAndDeleteRecursive(xmlObj);
+    findAndDelete(xmlObj);
 
     if (guideFoundAndDeleted) {
       return internalBuilder.build(xmlObj); // Constrói sem formatação
@@ -613,11 +631,11 @@ export const downloadXML = (content: string, fileName: string) => {
 };
 
 export const extractLotNumber = (xmlContent: string): string | undefined => {
-  const parser = new XMLParser(parserOptions);
+  const parser = new XMLParser(parserOptionsForExtraction); // Usar as novas opções de parser
   try {
     const xmlObj = parser.parse(xmlContent);
     // Common paths for numeroLote
-    const lotNumber = findTagValueRecursive(xmlObj, [
+    const lotNumber = findTagValue(xmlObj, [
       'ans:cabecalho.ans:numeroLote', // Specific path
       'ans:numeroLote', // Direct child of root or other high-level tag
       'numeroLote' // Without namespace
