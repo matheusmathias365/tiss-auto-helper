@@ -53,13 +53,41 @@ const defaultBuilderOptions = {
   },
 };
 
+// Helper para garantir que o objeto raiz seja o elemento principal, não um array
+const getRootElement = (parsedObj: any): any => {
+  if (Array.isArray(parsedObj) && parsedObj.length > 0) {
+    // Se for um array, assume que o primeiro elemento é o objeto raiz
+    return parsedObj[0];
+  }
+  return parsedObj;
+};
+
 export const rebuildXml = (xmlContent: string): string => {
   try {
-    const parser = new XMLParser(commonParserOptions); // Use commonParserOptions
+    const parser = new XMLParser(commonParserOptions);
     const builder = new XMLBuilder(defaultBuilderOptions);
     let xmlObj = parser.parse(xmlContent);
-    // No more manual namespace correction needed with preserveOrder: false
-    return builder.build(xmlObj);
+    let rootElement = getRootElement(xmlObj);
+
+    // Garante que o elemento raiz 'ans:mensagemTISS' tenha os atributos de namespace corretos
+    if (typeof rootElement === 'object' && rootElement !== null && rootElement['ans:mensagemTISS']) {
+      const mensagemTISS = rootElement['ans:mensagemTISS'];
+      if (typeof mensagemTISS === 'object' && mensagemTISS !== null) {
+        mensagemTISS['@_xmlns:xsi'] = "http://www.w3.org/2001/XMLSchema-instance";
+        mensagemTISS['@_xmlns:ans'] = "http://www.ans.gov.br/padroes/tiss/schemas";
+        mensagemTISS['@_xsi:schemaLocation'] = "http://www.ans.gov.br/padroes/tiss/schemas tissV4_01_00.xsd";
+      }
+    }
+    
+    // Remove quaisquer propriedades de namespace que possam ter sido parseadas incorretamente como elementos no nível superior
+    const namespaceKeys = ['@_xmlns:xsi', '@_xmlns:ans', '@_xsi:schemaLocation'];
+    for (const key of namespaceKeys) {
+      if (rootElement[key]) {
+        delete rootElement[key];
+      }
+    }
+
+    return builder.build(rootElement);
   } catch (error) {
     console.error("Error rebuilding XML:", error);
     return xmlContent;
@@ -68,11 +96,30 @@ export const rebuildXml = (xmlContent: string): string => {
 
 export const formatXmlContent = (xmlContent: string): string => {
   try {
-    const parser = new XMLParser(commonParserOptions); // Use commonParserOptions
+    const parser = new XMLParser(commonParserOptions);
     const formattedBuilder = new XMLBuilder({ ...defaultBuilderOptions, format: true, indentBy: "  " });
     let xmlObj = parser.parse(xmlContent);
-    // No more manual namespace correction needed with preserveOrder: false
-    return formattedBuilder.build(xmlObj);
+    let rootElement = getRootElement(xmlObj);
+
+    // Garante que o elemento raiz 'ans:mensagemTISS' tenha os atributos de namespace corretos
+    if (typeof rootElement === 'object' && rootElement !== null && rootElement['ans:mensagemTISS']) {
+      const mensagemTISS = rootElement['ans:mensagemTISS'];
+      if (typeof mensagemTISS === 'object' && mensagemTISS !== null) {
+        mensagemTISS['@_xmlns:xsi'] = "http://www.w3.org/2001/XMLSchema-instance";
+        mensagemTISS['@_xmlns:ans'] = "http://www.ans.gov.br/padroes/tiss/schemas";
+        mensagemTISS['@_xsi:schemaLocation'] = "http://www.ans.gov.br/padroes/tiss/schemas tissV4_01_00.xsd";
+      }
+    }
+
+    // Remove quaisquer propriedades de namespace que possam ter sido parseadas incorretamente como elementos no nível superior
+    const namespaceKeys = ['@_xmlns:xsi', '@_xmlns:ans', '@_xsi:schemaLocation'];
+    for (const key of namespaceKeys) {
+      if (rootElement[key]) {
+        delete rootElement[key];
+      }
+    }
+
+    return formattedBuilder.build(rootElement);
   } catch (error) {
     console.error("Error formatting XML content:", error);
     return xmlContent;
@@ -498,7 +545,7 @@ export const deleteGuide = (xmlContent: string, guideId: string): string => {
     findAndDelete(xmlObj);
 
     if (guideFoundAndDeleted) {
-      return internalBuilder.build(xmlObj);
+      return internalBuilder.build(getRootElement(xmlObj)); // Passa o elemento raiz correto
     } else {
       console.warn(`Guia com ID ${guideId} não encontrada para exclusão.`);
       return xmlContent;
