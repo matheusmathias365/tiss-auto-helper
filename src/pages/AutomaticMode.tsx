@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Upload, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import JSZip from "jszip";
-import { fixXMLStructure, standardizeTipoAtendimento, standardizeCBOS, extractGuides, addEpilogo, extractLotNumber, parseAndBuildXml } from "@/utils/xmlProcessor"; // Importar parseAndBuildXml
+import { fixXMLStructure, standardizeTipoAtendimento, standardizeCBOS, extractGuides, addEpilogo, extractLotNumber, rebuildXml, cleanNullValues } from "@/utils/xmlProcessor"; // Importar rebuildXml e cleanNullValues
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
 import { FaturistaNameModal } from "@/components/FaturistaNameModal";
 import { loadFaturistaName } from "@/utils/localStorage";
@@ -31,11 +31,21 @@ const AutomaticMode = () => {
     setLogs((prev) => [...prev, { action, details, timestamp: new Date() }]);
   };
 
-  const processXMLFile = (content: string): { content: string; totalChanges: number } => {
+  const processXMLContent = (content: string): { content: string; totalChanges: number } => {
     let processedContent = content;
     let totalChanges = 0;
 
-    // Apply all corrections in sequence
+    // 0. Limpar valores "NULL"
+    const cleanedContent = cleanNullValues(processedContent);
+    if (cleanedContent !== processedContent) {
+      addLog("Limpeza de NULLs", "Valores 'NULL' removidos");
+      processedContent = cleanedContent;
+      // Não contamos 'changes' aqui, pois cleanNullValues não retorna um contador
+    } else {
+      addLog("Limpeza de NULLs", "Nenhum valor 'NULL' encontrado");
+    }
+
+    // 1. Aplicar correção de estrutura
     const structureResult = fixXMLStructure(processedContent);
     processedContent = structureResult.content;
     totalChanges += structureResult.changes;
@@ -53,6 +63,7 @@ const AutomaticMode = () => {
       });
     }
 
+    // 2. Padronizar Tipo de Atendimento
     const tipoResult = standardizeTipoAtendimento(processedContent);
     processedContent = tipoResult.content;
     totalChanges += tipoResult.changes;
@@ -70,6 +81,7 @@ const AutomaticMode = () => {
       });
     }
 
+    // 3. Padronizar CBOS
     const cbosResult = standardizeCBOS(processedContent);
     processedContent = cbosResult.content;
     totalChanges += cbosResult.changes;
@@ -171,15 +183,15 @@ const AutomaticMode = () => {
         description: `O arquivo ${file.name} foi carregado com sucesso.`,
       });
 
-      const result = processXMLFile(content);
+      const result = processXMLContent(content);
       const finalContentWithEpilogo = addEpilogo(result.content);
-      const formattedFinalContent = parseAndBuildXml(finalContentWithEpilogo); // Formatar o conteúdo final
+      const rebuiltFinalContent = rebuildXml(finalContentWithEpilogo); // Reconstruir sem formatação para TISS
       addLog("Processamento", `${result.totalChanges} correções aplicadas`);
 
-      const guides = extractGuides(formattedFinalContent);
+      const guides = extractGuides(rebuiltFinalContent);
       const totalValue = guides.reduce((sum, guide) => sum + guide.valorTotalGeral, 0);
 
-      setProcessedContentForDownload(formattedFinalContent); // Store XML string
+      setProcessedContentForDownload(rebuiltFinalContent); // Store XML string
       setCurrentGuides(guides);
       setCurrentTotalValue(totalValue);
       
@@ -213,18 +225,18 @@ const AutomaticMode = () => {
     for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
       if (!zipEntry.dir && filename.endsWith('.xml')) {
         const content = await zipEntry.async('text');
-        const result = processXMLFile(content);
+        const result = processXMLContent(content);
         const finalContentWithEpilogo = addEpilogo(result.content);
-        const formattedFileContent = parseAndBuildXml(finalContentWithEpilogo); // Formatar cada arquivo XML
-        outputZip.file(filename, formattedFileContent);
+        const rebuiltFileContent = rebuildXml(finalContentWithEpilogo); // Reconstruir sem formatação
+        outputZip.file(filename, rebuiltFileContent);
         totalFiles++;
         totalChanges += result.totalChanges;
         
-        const fileGuides = extractGuides(formattedFileContent);
+        const fileGuides = extractGuides(rebuiltFileContent);
         allGuides.push(...fileGuides);
 
         if (!firstXmlContent) {
-          firstXmlContent = formattedFileContent; // Store formatted content of the first XML for lot number extraction
+          firstXmlContent = rebuiltFileContent; // Store rebuilt content of the first XML for lot number extraction
         }
       }
     }

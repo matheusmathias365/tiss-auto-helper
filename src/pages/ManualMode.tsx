@@ -5,12 +5,12 @@ import { GuidesList } from "@/components/GuidesList";
 import { XMLEditor } from "@/components/XMLEditor";
 import { AuditPanel } from "@/components/AuditPanel";
 import { Button } from "@/components/ui/button";
-import { Download, Sparkles, Undo2, ArrowLeft } from "lucide-react";
+import { Download, Sparkles, Undo2, ArrowLeft, LayoutList } from "lucide-react"; // Adicionado LayoutList
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import JSZip from "jszip";
 import {
-  fixXMLStructure, // Mantido para uso interno se necessário, mas não exposto via botão
+  fixXMLStructure,
   standardizeTipoAtendimento,
   standardizeCBOS,
   extractGuides,
@@ -18,7 +18,9 @@ import {
   addEpilogo,
   Guide,
   extractLotNumber,
-  parseAndBuildXml,
+  rebuildXml, // Usar rebuildXml (sem formatação)
+  formatXmlContent, // Usar formatXmlContent (com formatação)
+  cleanNullValues, // Importar cleanNullValues
 } from "@/utils/xmlProcessor";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
 import { FaturistaNameModal } from "@/components/FaturistaNameModal";
@@ -38,13 +40,17 @@ const ManualMode = () => {
   const [showFaturistaNameModal, setShowFaturistaNameModal] = useState(false);
 
   const handleFileLoad = (content: string, name: string) => {
-    // Armazenar o conteúdo bruto (corretamente decodificado)
-    setXmlContent(content);
-    setOriginalContent(content);
+    // Aplicar limpeza de NULLs e correção de estrutura no carregamento
+    let processedContent = cleanNullValues(content);
+    const structureResult = fixXMLStructure(processedContent);
+    processedContent = structureResult.content;
+
+    setXmlContent(processedContent);
+    setOriginalContent(processedContent); // O original também é o conteúdo limpo e corrigido
     setFileName(name);
-    setHistory([content]); // Armazenar o conteúdo original bruto no histórico
+    setHistory([processedContent]); // Armazenar o conteúdo inicial processado no histórico
     
-    const extractedGuides = extractGuides(content); // Extrair guias do conteúdo bruto
+    const extractedGuides = extractGuides(processedContent);
     setGuides(extractedGuides);
     
     const initialTotal = extractedGuides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
@@ -61,12 +67,11 @@ const ManualMode = () => {
   };
 
   const handleFixStructure = () => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    saveToHistory(xmlContent);
     const result = fixXMLStructure(xmlContent);
-    const formattedResult = parseAndBuildXml(result.content); // Formatar após a correção
-    setXmlContent(formattedResult);
-    
-    setGuides(extractGuides(formattedResult));
+    // Não formatar aqui, apenas aplicar a correção e atualizar o estado
+    setXmlContent(result.content); 
+    setGuides(extractGuides(result.content));
 
     if (result.changes > 0) {
       toast({
@@ -77,11 +82,11 @@ const ManualMode = () => {
   };
 
   const handleStandardizeTipoAtendimento = () => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    saveToHistory(xmlContent);
     const result = standardizeTipoAtendimento(xmlContent);
-    // A função standardizeTipoAtendimento já retorna o XML formatado.
+    // A função standardizeTipoAtendimento já retorna o XML como string, sem formatação
     setXmlContent(result.content); 
-    setGuides(extractGuides(result.content)); // Extrair guias do conteúdo já formatado
+    setGuides(extractGuides(result.content));
     
     if (result.changes > 0) {
       toast({
@@ -92,11 +97,11 @@ const ManualMode = () => {
   };
 
   const handleStandardizeCBOS = () => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    saveToHistory(xmlContent);
     const result = standardizeCBOS(xmlContent);
-    // A função standardizeCBOS já retorna o XML formatado.
+    // A função standardizeCBOS já retorna o XML como string, sem formatação
     setXmlContent(result.content);
-    setGuides(extractGuides(result.content)); // Extrair guias do conteúdo já formatado
+    setGuides(extractGuides(result.content));
     
     if (result.changes > 0) {
       toast({
@@ -107,13 +112,14 @@ const ManualMode = () => {
   };
 
   const handleDeleteGuide = (guideId: string) => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    saveToHistory(xmlContent);
     let newContent = deleteGuide(xmlContent, guideId);
     newContent = addEpilogo(newContent);
-    const formattedContent = parseAndBuildXml(newContent); // Formatar após exclusão e epílogo
-    setXmlContent(formattedContent);
+    // rebuildXml é usado para garantir que o XML seja estruturalmente válido após a exclusão e epílogo, mas sem formatação
+    const rebuiltContent = rebuildXml(newContent); 
+    setXmlContent(rebuiltContent);
     
-    const updatedGuides = extractGuides(formattedContent);
+    const updatedGuides = extractGuides(rebuiltContent);
     setGuides(updatedGuides);
     
     const deletedGuide = guides.find(g => g.id === guideId);
@@ -141,19 +147,21 @@ const ManualMode = () => {
   };
 
   const handleFindReplace = (newContent: string, changes: number) => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
-    const formattedContent = parseAndBuildXml(newContent); // Formatar após substituição
-    setXmlContent(formattedContent);
-    setGuides(extractGuides(formattedContent));
+    saveToHistory(xmlContent);
+    // rebuildXml é usado para garantir que o XML seja estruturalmente válido após a substituição, mas sem formatação
+    const rebuiltContent = rebuildXml(newContent); 
+    setXmlContent(rebuiltContent);
+    setGuides(extractGuides(rebuiltContent));
   };
 
   const handleFixHash = () => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    saveToHistory(xmlContent);
     const newContent = addEpilogo(xmlContent);
-    const formattedContent = parseAndBuildXml(newContent); // Formatar após correção do hash
-    setXmlContent(formattedContent);
+    // rebuildXml é usado para garantir que o XML seja estruturalmente válido após a correção do hash, mas sem formatação
+    const rebuiltContent = rebuildXml(newContent); 
+    setXmlContent(rebuiltContent);
     
-    setGuides(extractGuides(formattedContent));
+    setGuides(extractGuides(rebuiltContent));
 
     toast({
       title: "Hash corrigido",
@@ -185,6 +193,16 @@ const ManualMode = () => {
     }
   };
 
+  const handleFormatXml = () => {
+    if (!xmlContent) return;
+    const formatted = formatXmlContent(xmlContent);
+    setXmlContent(formatted);
+    toast({
+      title: "XML Formatado",
+      description: "O conteúdo do XML foi formatado para melhor legibilidade.",
+    });
+  };
+
   const handleDownloadTrigger = () => {
     setShowFaturistaNameModal(true);
   };
@@ -192,12 +210,13 @@ const ManualMode = () => {
   const handleConfirmFaturistaName = async (faturistaName: string) => {
     if (!xmlContent || !fileName) return;
     
+    // O conteúdo para download deve ser reconstruído (sem formatação) e ter o epílogo
     const contentWithEpilogo = addEpilogo(xmlContent);
-    const finalFormattedContent = parseAndBuildXml(contentWithEpilogo); // Formatar o conteúdo final para download
-    
+    const finalContentForDownload = rebuildXml(contentWithEpilogo); // Garante que está estruturalmente correto, sem formatação
+
     const zip = new JSZip();
     const xmlFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
-    zip.file(xmlFileName, finalFormattedContent); // Usar conteúdo formatado
+    zip.file(xmlFileName, finalContentForDownload); // Usar conteúdo não formatado para validação TISS
     
     const zipBlob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(zipBlob);
@@ -219,11 +238,11 @@ const ManualMode = () => {
       description: `Arquivo ${downloadName} baixado com sucesso.`,
     });
 
-    const totalValue = extractGuides(finalFormattedContent).reduce((sum, g) => sum + g.valorTotalGeral, 0);
-    const lotNumber = extractLotNumber(finalFormattedContent);
+    const totalValue = extractGuides(finalContentForDownload).reduce((sum, g) => sum + g.valorTotalGeral, 0);
+    const lotNumber = extractLotNumber(finalContentForDownload);
     openPrintableProtocol({
       fileName: fileName,
-      guides: extractGuides(finalFormattedContent),
+      guides: extractGuides(finalContentForDownload),
       totalValue: totalValue,
       faturistaName: faturistaName,
       convenioName: "Modo Manual",
@@ -319,6 +338,15 @@ const ManualMode = () => {
                   >
                     <Undo2 className="w-4 h-4" />
                     Desfazer Última Ação
+                  </Button>
+                  <Button
+                    onClick={handleFormatXml}
+                    disabled={!xmlContent}
+                    variant="outline"
+                    className="w-full gap-2"
+                  >
+                    <LayoutList className="w-4 h-4" />
+                    Formatar XML
                   </Button>
                   <Button
                     onClick={handleDownloadTrigger}

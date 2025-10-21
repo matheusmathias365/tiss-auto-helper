@@ -1,5 +1,5 @@
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
-import md5 from 'md5';
+import md5 from 'js-md5'; // Alterado para js-md5
 
 export interface ProcessingResult {
   content: string;
@@ -37,11 +37,11 @@ const parserOptions = {
   }
 };
 
-const builderOptions = {
+const defaultBuilderOptions = {
   ignoreAttributes: false,
   attributeNamePrefix: "@_", // Corresponde ao prefixo do parser
   textNodeName: "#text",
-  format: true,
+  format: false, // <--- CRITICAL CHANGE: Set to false by default for TISS validation
   indentBy: "  ",
   processEntities: false,
   // Inclui explicitamente a declaração XML
@@ -54,18 +54,14 @@ const builderOptions = {
   },
 };
 
-export const parseAndBuildXml = (xmlContent: string): string => {
+// Renomeado de parseAndBuildXml para rebuildXml para refletir seu propósito de reconstruir sem formatar por padrão
+export const rebuildXml = (xmlContent: string): string => {
   try {
     const parser = new XMLParser(parserOptions);
-    const builder = new XMLBuilder(builderOptions);
+    const builder = new XMLBuilder(defaultBuilderOptions); // Usa defaultBuilderOptions (format: false)
     let xmlObj = parser.parse(xmlContent);
 
-    // --- Correção manual para atributos de namespace se eles forem parseados como elementos ---
-    // Isso é um workaround se o fast-xml-parser não os coloca corretamente como atributos
-    // quando preserveOrder é true e eles estão inicialmente malformados na entrada.
-    // O exemplo do usuário mostra-os como elementos *dentro* de ans:mensagemTISS, o que está incorreto.
-    // Precisamos encontrá-los e movê-los para os atributos do elemento raiz.
-
+    // Correção manual para atributos de namespace se eles forem parseados como elementos
     let rootElementNode: any = null;
     if (Array.isArray(xmlObj) && xmlObj.length > 0) {
       rootElementNode = xmlObj.find(node => Object.keys(node)[0] === 'ans:mensagemTISS');
@@ -80,11 +76,9 @@ export const parseAndBuildXml = (xmlContent: string): string => {
         const child = rootChildren[i];
         const childKey = Object.keys(child)[0];
 
-        // Identifica as tags de namespace e schemaLocation que estão malformadas como elementos
         if (childKey === 'xmlns:xsi' || childKey === 'xmlns:ans' || childKey === 'xsi:schemaLocation') {
           const attrValue = child[childKey]['#text'];
           if (attrValue) {
-            // Converte para o formato de atributo para o builder: @_{attributeName}
             namespaceAttrs[`@_${childKey}`] = attrValue;
           }
         } else {
@@ -92,20 +86,65 @@ export const parseAndBuildXml = (xmlContent: string): string => {
         }
       }
 
-      // Aplica os atributos de namespace extraídos ao elemento raiz
       if (Object.keys(namespaceAttrs).length > 0) {
         Object.assign(rootElementNode, namespaceAttrs);
-        rootElementNode['ans:mensagemTISS'] = newRootChildren; // Atualiza os filhos após remover os elementos de namespace
+        rootElementNode['ans:mensagemTISS'] = newRootChildren;
       }
     }
-    // --- Fim da correção manual ---
 
     return builder.build(xmlObj);
   } catch (error) {
-    console.error("Error parsing and rebuilding XML for formatting:", error);
+    console.error("Error rebuilding XML:", error);
+    return xmlContent;
+  }
+};
+
+// Nova função para formatação explícita (para exibição ou download opcional)
+export const formatXmlContent = (xmlContent: string): string => {
+  try {
+    const parser = new XMLParser(parserOptions);
+    // Cria um novo builder com formatação ativada
+    const formattedBuilder = new XMLBuilder({ ...defaultBuilderOptions, format: true, indentBy: "  " });
+    let xmlObj = parser.parse(xmlContent);
+
+    // Aplica a mesma correção manual de namespace se necessário
+    let rootElementNode: any = null;
+    if (Array.isArray(xmlObj) && xmlObj.length > 0) {
+      rootElementNode = xmlObj.find(node => Object.keys(node)[0] === 'ans:mensagemTISS');
+    }
+
+    if (rootElementNode && rootElementNode['ans:mensagemTISS'] && Array.isArray(rootElementNode['ans:mensagemTISS'])) {
+      const rootChildren = rootElementNode['ans:mensagemTISS'];
+      const newRootChildren: any[] = [];
+      const namespaceAttrs: { [key: string]: string } = {};
+
+      for (let i = 0; i < rootChildren.length; i++) {
+        const child = rootChildren[i];
+        const childKey = Object.keys(child)[0];
+
+        if (childKey === 'xmlns:xsi' || childKey === 'xmlns:ans' || childKey === 'xsi:schemaLocation') {
+          const attrValue = child[childKey]['#text'];
+          if (attrValue) {
+            namespaceAttrs[`@_${childKey}`] = attrValue;
+          }
+        } else {
+          newRootChildren.push(child);
+        }
+      }
+
+      if (Object.keys(namespaceAttrs).length > 0) {
+        Object.assign(rootElementNode, namespaceAttrs);
+        rootElementNode['ans:mensagemTISS'] = newRootChildren;
+      }
+    }
+
+    return formattedBuilder.build(xmlObj);
+  } catch (error) {
+    console.error("Error formatting XML content:", error);
     return xmlContent; // Retorna o conteúdo original em caso de erro
   }
 };
+
 
 export const fixXMLStructure = (xmlContent: string): ProcessingResult => {
   let content = xmlContent;
@@ -134,112 +173,84 @@ export const fixXMLStructure = (xmlContent: string): ProcessingResult => {
 };
 
 export const standardizeTipoAtendimento = (xmlContent: string): ProcessingResult => {
-  try {
-    const parser = new XMLParser(parserOptions);
-    const builder = new XMLBuilder(builderOptions);
-    
-    const xmlObj = parser.parse(xmlContent);
-    let changes = 0;
-
-    // Recursively find and replace tipoAtendimento values
-    const replaceInObject = (obj: any): void => {
-      if (typeof obj !== 'object' || obj === null) return;
-      
-      for (const key in obj) {
-        if (key === 'ans:tipoAtendimento' || key === 'tipoAtendimento') {
-          if (typeof obj[key] === 'object' && '#text' in obj[key]) {
-            if (obj[key]['#text'] !== '23') {
-              obj[key]['#text'] = '23';
-              changes++;
-            }
-          } else if (obj[key] !== 23 && obj[key] !== '23') {
-            obj[key] = '23';
-            changes++;
-          }
-        } else if (typeof obj[key] === 'object') {
-          replaceInObject(obj[key]);
-        }
-      }
-    };
-
-    replaceInObject(xmlObj);
-    
-    const content = builder.build(xmlObj);
-    return { content, changes };
-  } catch (error) {
-    // Fallback to regex if parsing fails
-    console.warn('XML parsing failed, using fallback method');
-    let content = xmlContent;
-    let changes = 0;
-    
-    const tipoAtendimentoRegex = /<ans:tipoAtendimento>.*?<\/ans:tipoAtendimento>/g;
-    const matches = content.match(tipoAtendimentoRegex);
-    
-    if (matches) {
-      changes = matches.length;
+  let content = xmlContent;
+  let changes = 0;
+  
+  // Use regex para substituição direta, incluindo tags vazias ou com 'NULL'
+  const tipoAtendimentoRegex = /<ans:tipoAtendimento>(?:.*?|NULL)<\/ans:tipoAtendimento>|<ans:tipoAtendimento\s*\/>/g;
+  
+  // Encontra todas as ocorrências para contar as mudanças
+  const matches = [...content.matchAll(tipoAtendimentoRegex)];
+  
+  if (matches.length > 0) {
+    // Filtra as ocorrências que já são '23' para contar apenas as mudanças reais
+    const actualChanges = matches.filter(match => match[0] !== '<ans:tipoAtendimento>23</ans:tipoAtendimento>').length;
+    if (actualChanges > 0) {
+      changes = actualChanges;
       content = content.replace(
         tipoAtendimentoRegex,
         '<ans:tipoAtendimento>23</ans:tipoAtendimento>'
       );
     }
-
-    return { content, changes };
   }
+
+  return { content, changes };
 };
 
 export const standardizeCBOS = (xmlContent: string): ProcessingResult => {
-  try {
-    const parser = new XMLParser(parserOptions);
-    const builder = new XMLBuilder(builderOptions);
-    
-    const xmlObj = parser.parse(xmlContent);
-    let changes = 0;
-
-    // Recursively find and replace CBOS values
-    const replaceInObject = (obj: any): void => {
-      if (typeof obj !== 'object' || obj === null) return;
-      
-      for (const key in obj) {
-        if (key === 'ans:CBOS' || key === 'CBOS') {
-          if (typeof obj[key] === 'object' && '#text' in obj[key]) {
-            if (obj[key]['#text'] !== '225125') {
-              obj[key]['#text'] = '225125';
-              changes++;
-            }
-          } else if (obj[key] !== 225125 && obj[key] !== '225125') {
-            obj[key] = '225125';
-            changes++;
-          }
-        } else if (typeof obj[key] === 'object') {
-          replaceInObject(obj[key]);
-        }
-      }
-    };
-
-    replaceInObject(xmlObj);
-    
-    const content = builder.build(xmlObj);
-    return { content, changes };
-  } catch (error) {
-    // Fallback to regex if parsing fails
-    console.warn('XML parsing failed, using fallback method');
-    let content = xmlContent;
-    let changes = 0;
-    
-    const cbosRegex = /<ans:CBOS>.*?<\/ans:CBOS>/g;
-    const matches = content.match(cbosRegex);
-    
-    if (matches) {
-      changes = matches.length;
-      content = content.replace(
-        cbosRegex,
-        '<ans:CBOS>225125</ans:CBOS>'
-      );
-    }
-
-    return { content, changes };
+  let content = xmlContent;
+  let changes = 0;
+  
+  // Step 1: Remove CBOS tags that are empty or contain 'NULL'
+  // This regex captures the entire tag, including self-closing ones
+  const cbosEmptyOrNullRegex = /<ans:CBOS>(?:\s*|NULL)<\/ans:CBOS>|<ans:CBOS\s*\/>/g;
+  
+  // Use a temporary variable to track content for this step
+  let contentAfterRemoval = content;
+  let match;
+  while ((match = cbosEmptyOrNullRegex.exec(contentAfterRemoval)) !== null) {
+    changes++;
+    // Replace the matched tag with an empty string to remove it
+    content = content.replace(match[0], ''); 
   }
+  
+  // Step 2: Standardize remaining CBOS tags that are not '225125'
+  // This regex looks for <ans:CBOS>...</ans:CBOS> where content is NOT '225125'
+  const cbosNonStandardRegex = /(<ans:CBOS>)(?!225125)(.*?)(<\/ans:CBOS>)/g;
+  
+  // Reset regex lastIndex for new pass
+  cbosNonStandardRegex.lastIndex = 0; 
+  while ((match = cbosNonStandardRegex.exec(content)) !== null) {
+    // Only count changes if the value is actually different from '225125'
+    if (match[2].trim() !== '225125') {
+      changes++;
+      // Replace the entire matched tag with the standardized version
+      content = content.replace(match[0], '<ans:CBOS>225125</ans:CBOS>');
+    }
+  }
+
+  return { content, changes };
 };
+
+export const cleanNullValues = (xmlContent: string): string => {
+  // Regex para encontrar qualquer conteúdo de tag que seja exatamente 'NULL' (case-insensitive)
+  // Isso substituirá <tag>NULL</tag> por <tag></tag>
+  let content = xmlContent;
+  let changes = 0;
+  const nullValueRegex = /(<[a-zA-Z:_][\w:.-]*>)\s*NULL\s*(<\/[a-zA-Z:_][\w:.-]*>)/gi;
+  
+  // Contar as mudanças antes de substituir
+  while (nullValueRegex.exec(content) !== null) {
+    changes++;
+  }
+  // Reset lastIndex for replacement
+  nullValueRegex.lastIndex = 0;
+  content = content.replace(nullValueRegex, '$1$2'); // Substitui por conteúdo vazio
+
+  console.log(`Cleaned ${changes} 'NULL' values.`);
+  return content;
+};
+
 
 // Helper para recursivamente encontrar o valor de uma tag, considerando objetos com #text ou valores diretos
 const findTagValueRecursive = (obj: any, tagNames: string[]): string | undefined => {
@@ -414,7 +425,8 @@ export const extractGuides = (xmlContent: string): Guide[] => {
 export const deleteGuide = (xmlContent: string, guideId: string): string => {
   try {
     const parser = new XMLParser(parserOptions);
-    const builder = new XMLBuilder(builderOptions);
+    // Usa um builder com formatação desativada para esta operação interna
+    const internalBuilder = new XMLBuilder({ ...defaultBuilderOptions, format: false });
     let xmlObj = parser.parse(xmlContent);
 
     let guideFoundAndDeleted = false;
@@ -454,13 +466,14 @@ export const deleteGuide = (xmlContent: string, guideId: string): string => {
     findAndDeleteRecursive(xmlObj);
 
     if (guideFoundAndDeleted) {
-      return builder.build(xmlObj);
+      return internalBuilder.build(xmlObj); // Constrói sem formatação
     } else {
       console.warn(`Guia com ID ${guideId} não encontrada para exclusão.`);
       return xmlContent; // Retorna o conteúdo original se a guia não for encontrada
     }
 
-  } catch (error) {
+  } catch (error)
+  {
     console.error("Erro ao excluir guia usando parsing XML:", error);
     // Fallback para regex se o parsing falhar
     const guideRegex = new RegExp(`<ans:guiaSP-SADT>[\\s\\S]*?<ans:numeroGuiaPrestador>${guideId}<\\/ans:numeroGuiaPrestador>[\\s\\S]*?<\\/ans:guiaSP-SADT>`, 'g');
@@ -472,7 +485,9 @@ export const deleteGuide = (xmlContent: string, guideId: string): string => {
 export const calculateHash = (xmlContent: string): string => {
   // Remove epílogo existente antes de calcular o hash
   const contentWithoutEpilogo = xmlContent.replace(/<ans:epilogo>[\s\S]*?<\/ans:epilogo>/g, '');
-  return md5(contentWithoutEpilogo);
+  
+  // Calcula o hash do conteúdo atualizado usando js-md5 com encoding latin1
+  return md5(contentWithoutEpilogo, { encoding: 'latin1' });
 };
 
 // Adiciona o epílogo com o hash ao XML
@@ -522,17 +537,17 @@ export const findEmptyFields = (xmlContent: string): string => {
   const emptyTags: string[] = [];
   
   // Verifica tags auto-fechadas ou vazias
-  const cbosEmpty = xmlContent.match(/<ans:CBOS\s*\/>/g) || xmlContent.match(/<ans:CBOS><\/ans:CBOS>/g);
+  const cbosEmpty = xmlContent.match(/<ans:CBOS>(?:\s*|NULL)<\/ans:CBOS>|<ans:CBOS\s*\/>/g);
   if (cbosEmpty && cbosEmpty.length > 0) {
     emptyTags.push(`<ans:CBOS /> (${cbosEmpty.length} ocorrências)`);
   }
   
-  const tipoEmpty = xmlContent.match(/<ans:tipoAtendimento\s*\/>/g) || xmlContent.match(/<ans:tipoAtendimento><\/ans:tipoAtendimento>/g);
+  const tipoEmpty = xmlContent.match(/<ans:tipoAtendimento>(?:\s*|NULL)<\/ans:tipoAtendimento>|<ans:tipoAtendimento\s*\/>/g);
   if (tipoEmpty && tipoEmpty.length > 0) {
     emptyTags.push(`<ans:tipoAtendimento /> (${tipoEmpty.length} ocorrências)`);
   }
   
-  const crmEmpty = xmlContent.match(/<ans:codigoPrestadorNaOperadora\s*\/>/g) || xmlContent.match(/<ans:codigoPrestadorNaOperadora><\/ans:codigoPrestadorNaOperadora>/g);
+  const crmEmpty = xmlContent.match(/<ans:codigoPrestadorNaOperadora>(?:\s*|NULL)<\/ans:codigoPrestadorNaOperadora>|<ans:codigoPrestadorNaOperadora\s*\/>/g);
   if (crmEmpty && crmEmpty.length > 0) {
     emptyTags.push(`<ans:codigoPrestadorNaOperadora /> (${crmEmpty.length} ocorrências)`);
   }
@@ -555,14 +570,15 @@ export const validateProfessionalData = (xmlContent: string): string[] => {
     // Verifica nomes de profissionais suspeitos (procedimentos em vez de nomes)
     const suspiciousNames = [
       'ECOCARDIOGRAMA', 'ULTRASSOM', 'RAIO-X', 'TOMOGRAFIA', 'RESSONANCIA',
-      'LABORATORIO', 'EXAME', 'CONSULTA', 'PROCEDIMENTO'
+      'LABORATORIO', 'EXAME', 'CONSULTA', 'PROCEDIMENTO', 'TELELAUDO TECNOLOGIA MEDICA LTDA',
+      'ECO-RAD SERVICOS DE DIAGNOSTICO POR IMAGEM LTDA' // Adicionado nome de empresa
     ];
     
     const upperName = guide.nomeProfissional.toUpperCase();
     const isSuspicious = suspiciousNames.some(term => upperName.includes(term));
     
     if (isSuspicious) {
-      results.push(`⚠️ ALERTA (Guia ${guideNumber}): Nome de profissional ('${guide.nomeProfissional}') parece ser um procedimento, não um nome válido.`);
+      results.push(`⚠️ ALERTA (Guia ${guideNumber}): Nome de profissional ('${guide.nomeProfissional}') parece ser um procedimento ou nome de empresa, não um nome válido de pessoa física.`);
     }
   });
   

@@ -12,7 +12,7 @@ import { AuditPanel } from "@/components/AuditPanel";
 import { ConferenciaPanel } from "@/components/ConferenciaPanel";
 import { TriagemTable } from "@/components/TriagemTable";
 import { AssistenteTISS } from "@/components/AssistenteTISS";
-import { ArrowLeft, HelpCircle, Download, Undo2, Sparkles } from "lucide-react";
+import { ArrowLeft, HelpCircle, Download, Undo2, Sparkles, LayoutList } from "lucide-react"; // Adicionado LayoutList
 import { useToast } from "@/hooks/use-toast";
 import { loadConfig, loadFaturistaName } from "@/utils/localStorage";
 import JSZip from "jszip";
@@ -25,7 +25,9 @@ import {
   addEpilogo,
   Guide,
   extractLotNumber,
-  parseAndBuildXml, // Importar a função de formatação
+  rebuildXml, // Importar rebuildXml
+  formatXmlContent, // Importar formatXmlContent
+  cleanNullValues, // Importar cleanNullValues
 } from "@/utils/xmlProcessor";
 import { CorrectionRule } from "@/types/profiles";
 import { openPrintableProtocol } from "@/components/PrintableProtocol";
@@ -86,10 +88,11 @@ const ConvenioPanel = () => {
 
     for (const rule of associatedRules) {
       const { condition, action } = rule;
-      const fieldRegex = new RegExp(`<${condition.field}>(.*?)<\/${condition.field}>`, 'g');
+      // Regex para encontrar a tag e seu conteúdo
+      const fieldRegex = new RegExp(`(<${condition.field}>)(.*?)(<\/${condition.field}>)`, 'g');
       
       let ruleChanges = 0;
-      modifiedContent = modifiedContent.replace(fieldRegex, (match, value) => {
+      modifiedContent = modifiedContent.replace(fieldRegex, (match, openTag, value, closeTag) => {
         let shouldApply = false;
 
         switch (condition.operator) {
@@ -137,14 +140,18 @@ const ConvenioPanel = () => {
   };
 
   const handleFileLoad = (content: string, name: string) => {
-    // Armazenar o conteúdo bruto (corretamente decodificado)
-    setXmlContent(content);
-    setOriginalContent(content);
+    // Aplicar limpeza de NULLs e correção de estrutura no carregamento
+    let processedContent = cleanNullValues(content);
+    const structureResult = fixXMLStructure(processedContent);
+    processedContent = structureResult.content;
+
+    setXmlContent(processedContent);
+    setOriginalContent(processedContent); // O original também é o conteúdo limpo e corrigido
     setFileName(name);
-    setHistory([content]); // Armazenar o conteúdo original bruto no histórico
+    setHistory([processedContent]); // Armazenar o conteúdo inicial processado no histórico
     setLogs([]);
     
-    const extractedGuides = extractGuides(content); // Extrair guias do conteúdo bruto
+    const extractedGuides = extractGuides(processedContent);
     setGuides(extractedGuides);
     
     const totalOriginal = extractedGuides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
@@ -166,8 +173,17 @@ const ConvenioPanel = () => {
     let content = xmlContent;
     saveToHistory(content);
 
+    // 0. Limpar valores "NULL"
+    const cleanedContent = cleanNullValues(content);
+    if (cleanedContent !== content) {
+      addLog("Limpeza de NULLs", "success", "Valores 'NULL' removidos");
+      content = cleanedContent;
+    } else {
+      addLog("Limpeza de NULLs", "info", "Nenhum valor 'NULL' encontrado");
+    }
+
     const structureResult = fixXMLStructure(content);
-    content = parseAndBuildXml(structureResult.content); // Formatar após correção de estrutura
+    content = structureResult.content; // Não formatar aqui
     if (structureResult.changes > 0) {
       addLog("Estrutura corrigida", "success", `${structureResult.changes} correções`);
       toast({
@@ -183,7 +199,7 @@ const ConvenioPanel = () => {
     }
 
     const tipoResult = standardizeTipoAtendimento(content);
-    content = tipoResult.content; // Usar o conteúdo já formatado
+    content = tipoResult.content; // Usar o conteúdo já como string
     if (tipoResult.changes > 0) {
       addLog("tipoAtendimento padronizado", "success", `${tipoResult.changes} campos`);
       toast({
@@ -199,7 +215,7 @@ const ConvenioPanel = () => {
     }
 
     const cbosResult = standardizeCBOS(content);
-    content = cbosResult.content; // Usar o conteúdo já formatado
+    content = cbosResult.content; // Usar o conteúdo já como string
     if (cbosResult.changes > 0) {
       addLog("CBOS padronizado", "success", `${cbosResult.changes} campos`);
       toast({
@@ -215,7 +231,7 @@ const ConvenioPanel = () => {
     }
 
     const customResult = applyCustomRules(content);
-    content = parseAndBuildXml(customResult.content); // Formatar após regras personalizadas
+    content = customResult.content; // Usar o conteúdo já como string
     if (customResult.changes > 0) {
       addLog("Regras personalizadas aplicadas", "success", `${customResult.changes} alterações`);
     } else {
@@ -223,11 +239,11 @@ const ConvenioPanel = () => {
     }
 
     const finalContent = addEpilogo(content);
-    const formattedFinalContent = parseAndBuildXml(finalContent); // Formatar o conteúdo final
-    setXmlContent(formattedFinalContent);
-    setDownloadContent(formattedFinalContent);
+    const rebuiltFinalContent = rebuildXml(finalContent); // Reconstruir sem formatação para TISS
+    setXmlContent(rebuiltFinalContent);
+    setDownloadContent(rebuiltFinalContent);
     
-    setGuides(extractGuides(formattedFinalContent));
+    setGuides(extractGuides(rebuiltFinalContent));
 
     const storedFaturistaName = loadFaturistaName();
     if (storedFaturistaName) {
@@ -238,7 +254,11 @@ const ConvenioPanel = () => {
   };
 
   const handleDownloadTrigger = () => {
-    setDownloadContent(parseAndBuildXml(xmlContent)); // Formatar o conteúdo atual para download
+    // O conteúdo para download deve ser reconstruído (sem formatação) e ter o epílogo
+    const contentWithEpilogo = addEpilogo(xmlContent);
+    const finalContentForDownload = rebuildXml(contentWithEpilogo); // Garante que está estruturalmente correto, sem formatação
+    setDownloadContent(finalContentForDownload);
+
     const storedFaturistaName = loadFaturistaName();
     if (storedFaturistaName) {
       handleConfirmFaturistaName(storedFaturistaName);
@@ -250,22 +270,19 @@ const ConvenioPanel = () => {
   const handleConfirmFaturistaName = async (faturistaName: string) => {
     if (!downloadContent || !fileName) return;
     
-    const contentWithEpilogo = addEpilogo(downloadContent);
-    const finalFormattedContent = parseAndBuildXml(contentWithEpilogo); // Formatar o conteúdo final para download
-    
     let finalDownloadBlob: Blob | null = null;
     let downloadFileName = fileName;
 
     if (profile.outputFormat === 'zip') {
       const zip = new JSZip();
       const xmlFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
-      zip.file(xmlFileName, finalFormattedContent); // Usar conteúdo formatado
+      zip.file(xmlFileName, downloadContent); // Usar downloadContent (já reconstruído sem formatação)
       finalDownloadBlob = await zip.generateAsync({ type: "blob" });
       downloadFileName = fileName.endsWith('.xml') 
         ? fileName.replace('.xml', '.zip')
         : `${fileName}.zip`;
     } else {
-      finalDownloadBlob = new Blob([finalFormattedContent], { type: 'application/xml' }); // Usar conteúdo formatado
+      finalDownloadBlob = new Blob([downloadContent], { type: 'application/xml' }); // Usar downloadContent
       downloadFileName = fileName.endsWith('.xml') ? fileName : `${fileName}.xml`;
     }
 
@@ -292,11 +309,11 @@ const ConvenioPanel = () => {
       description: `Arquivo ${downloadFileName} baixado com sucesso.`,
     });
 
-    const lotNumber = extractLotNumber(finalFormattedContent);
+    const lotNumber = extractLotNumber(downloadContent);
     openPrintableProtocol({
       fileName: fileName,
-      guides: extractGuides(finalFormattedContent),
-      totalValue: extractGuides(finalFormattedContent).reduce((sum, g) => sum + g.valorTotalGeral, 0),
+      guides: extractGuides(downloadContent),
+      totalValue: extractGuides(downloadContent).reduce((sum, g) => sum + g.valorTotalGeral, 0),
       faturistaName: faturistaName,
       convenioName: profile.name,
       lotNumber: lotNumber,
@@ -306,11 +323,10 @@ const ConvenioPanel = () => {
   };
 
   const handleFixStructure = () => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    saveToHistory(xmlContent);
     const result = fixXMLStructure(xmlContent);
-    const formattedResult = parseAndBuildXml(result.content); // Formatar após a correção
-    setXmlContent(formattedResult);
-    setGuides(extractGuides(formattedResult));
+    setXmlContent(result.content); // Não formatar aqui
+    setGuides(extractGuides(result.content));
     addLog(
       "Estrutura corrigida",
       result.changes > 0 ? "success" : "warning",
@@ -323,11 +339,10 @@ const ConvenioPanel = () => {
   };
 
   const handleStandardizeTipoAtendimento = () => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    saveToHistory(xmlContent);
     const result = standardizeTipoAtendimento(xmlContent);
-    // A função standardizeTipoAtendimento já retorna o XML formatado.
-    setXmlContent(result.content);
-    setGuides(extractGuides(result.content)); // Extrair guias do conteúdo já formatado
+    setXmlContent(result.content); // Usar o conteúdo já como string
+    setGuides(extractGuides(result.content));
     addLog(
       "tipoAtendimento padronizado",
       result.changes > 0 ? "success" : "warning",
@@ -340,11 +355,10 @@ const ConvenioPanel = () => {
   };
 
   const handleStandardizeCBOS = () => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    saveToHistory(xmlContent);
     const result = standardizeCBOS(xmlContent);
-    // A função standardizeCBOS já retorna o XML formatado.
-    setXmlContent(result.content);
-    setGuides(extractGuides(result.content)); // Extrair guias do conteúdo já formatado
+    setXmlContent(result.content); // Usar o conteúdo já como string
+    setGuides(extractGuides(result.content));
     addLog(
       "CBOS padronizado",
       result.changes > 0 ? "success" : "warning",
@@ -357,13 +371,13 @@ const ConvenioPanel = () => {
   };
 
   const handleDeleteGuide = (guideId: string) => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    saveToHistory(xmlContent);
     let newContent = deleteGuide(xmlContent, guideId);
     newContent = addEpilogo(newContent);
-    const formattedContent = parseAndBuildXml(newContent); // Formatar após exclusão e epílogo
-    setXmlContent(formattedContent);
+    const rebuiltContent = rebuildXml(newContent); // Reconstruir sem formatação
+    setXmlContent(rebuiltContent);
     
-    const updatedGuides = extractGuides(formattedContent);
+    const updatedGuides = extractGuides(rebuiltContent);
     setGuides(updatedGuides);
     
     const deletedGuide = guides.find(g => g.id === guideId);
@@ -390,10 +404,10 @@ const ConvenioPanel = () => {
   };
 
   const handleFindReplace = (newContent: string, changes: number) => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
-    const formattedContent = parseAndBuildXml(newContent); // Formatar após substituição
-    setXmlContent(formattedContent);
-    setGuides(extractGuides(formattedContent));
+    saveToHistory(xmlContent);
+    const rebuiltContent = rebuildXml(newContent); // Reconstruir sem formatação
+    setXmlContent(rebuiltContent);
+    setGuides(extractGuides(rebuiltContent));
     addLog("Substituição realizada", "success", `${changes} substituições`);
     toast({
       title: "Substituição realizada",
@@ -402,11 +416,11 @@ const ConvenioPanel = () => {
   };
 
   const handleFixHash = () => {
-    saveToHistory(xmlContent); // Salvar o estado atual antes da modificação
+    saveToHistory(xmlContent);
     const newContent = addEpilogo(xmlContent);
-    const formattedContent = parseAndBuildXml(newContent); // Formatar após correção do hash
-    setXmlContent(formattedContent);
-    setGuides(extractGuides(formattedContent));
+    const rebuiltContent = rebuildXml(newContent); // Reconstruir sem formatação
+    setXmlContent(rebuiltContent);
+    setGuides(extractGuides(rebuiltContent));
     addLog("Hash corrigido", "success", "Hash MD5 recalculado");
     toast({
       title: "Hash corrigido",
@@ -424,7 +438,6 @@ const ConvenioPanel = () => {
   const handleUndo = () => {
     if (history.length > 1) {
       const previousContent = history[history.length - 2];
-      // Ao desfazer, o conteúdo já deve estar na sua forma desejada (bruta ou formatada anteriormente)
       setXmlContent(previousContent); 
       setHistory((prev) => prev.slice(0, -1));
       
@@ -437,6 +450,16 @@ const ConvenioPanel = () => {
         description: "Última ação revertida com sucesso.",
       });
     }
+  };
+
+  const handleFormatXml = () => {
+    if (!xmlContent) return;
+    const formatted = formatXmlContent(xmlContent);
+    setXmlContent(formatted);
+    toast({
+      title: "XML Formatado",
+      description: "O conteúdo do XML foi formatado para melhor legibilidade.",
+    });
   };
 
   const currentValue = guides.reduce((sum, g) => sum + g.valorTotalGeral, 0);
@@ -540,7 +563,10 @@ const ConvenioPanel = () => {
                     disabled={!xmlContent}
                   />
 
-                  {/* REMOVED: FindReplacePanel */}
+                  <FindReplacePanel 
+                    content={xmlContent}
+                    onReplace={handleFindReplace}
+                  />
 
                   <div className="flex flex-col gap-3">
                     <Button
@@ -551,6 +577,15 @@ const ConvenioPanel = () => {
                     >
                       <Undo2 className="w-4 h-4" />
                       Desfazer Última Ação
+                    </Button>
+                    <Button
+                      onClick={handleFormatXml}
+                      disabled={!xmlContent}
+                      variant="outline"
+                      className="w-full gap-2"
+                    >
+                      <LayoutList className="w-4 h-4" />
+                      Formatar XML
                     </Button>
                     <Button
                       onClick={handleDownloadTrigger}
