@@ -379,31 +379,41 @@ export const extractGuides = (xmlContent: string): Guide[] => {
 
       if (rawValorTotalGeral) {
         let sanitizedValue = rawValorTotalGeral.trim();
-        
-        // Remove all characters that are not digits, commas, or dots
-        sanitizedValue = sanitizedValue.replace(/[^0-9.,]/g, '');
+        sanitizedValue = sanitizedValue.replace(/[^0-9.,]/g, ''); // Manter apenas dígitos, vírgulas e pontos
 
-        // Determine if the last separator is a comma (Brazilian style) or a dot (US style)
         const lastCommaIndex = sanitizedValue.lastIndexOf(',');
         const lastDotIndex = sanitizedValue.lastIndexOf('.');
 
-        if (lastCommaIndex > lastDotIndex) {
-          // Brazilian format (e.g., "1.234.567,89")
-          // Remove all dots (thousands separator)
-          sanitizedValue = sanitizedValue.replace(/\./g, '');
-          // Replace the comma (decimal separator) with a dot
-          sanitizedValue = sanitizedValue.replace(/,/g, '.');
+        if (lastCommaIndex === -1 && lastDotIndex === -1) {
+            // Nenhum separador, é um número inteiro. Ex: "12345"
+            // Nenhuma transformação necessária.
+        } else if (lastCommaIndex > lastDotIndex) {
+            // Formato brasileiro: vírgula é decimal, ponto é milhar. Ex: "1.234,56" ou "123,45"
+            sanitizedValue = sanitizedValue.replace(/\./g, ''); // Remove pontos de milhar
+            sanitizedValue = sanitizedValue.replace(/,/g, '.'); // Troca vírgula decimal por ponto
         } else if (lastDotIndex > lastCommaIndex) {
-          // US format (e.g., "1,234,567.89")
-          // Remove all commas (thousands separator)
-          sanitizedValue = sanitizedValue.replace(/,/g, '');
-          // The dot (decimal separator) is already correct
+            // Formato americano: ponto é decimal, vírgula é milhar. Ex: "1,234.56" ou "123.45"
+            sanitizedValue = sanitizedValue.replace(/,/g, ''); // Remove vírgulas de milhar
+            // O ponto já é o separador decimal, não precisa de alteração.
+        } else { 
+            // Caso ambíguo: apenas um tipo de separador existe (apenas pontos ou apenas vírgulas)
+            // Ex: "1.000" (apenas pontos) ou "1,000" (apenas vírgulas)
+            // Heurística: se um único separador é seguido por exatamente 3 dígitos, é um separador de milhares.
+            // Caso contrário, é um separador decimal.
+            if (lastDotIndex !== -1) { // Apenas pontos, ex: "1.000", "123.45"
+                if (sanitizedValue.match(/\.\d{3}$/)) { // Ex: "1.000" (significando 1000)
+                    sanitizedValue = sanitizedValue.replace(/\./g, ''); // Remove o ponto
+                }
+                // Senão, se for "123.45", mantém como ponto decimal.
+            } else if (lastCommaIndex !== -1) { // Apenas vírgulas, ex: "1,000", "123,45"
+                if (sanitizedValue.match(/,\d{3}$/)) { // Ex: "1,000" (significando 1000)
+                    sanitizedValue = sanitizedValue.replace(/,/g, ''); // Remove a vírgula
+                } else { // Ex: "123,45" (significando 123.45)
+                    sanitizedValue = sanitizedValue.replace(/,/g, '.'); // Troca vírgula por ponto
+                }
+            }
         }
-        // If only one separator exists, or no separators, parseFloat will handle it.
-        // E.g., "123,45" -> lastCommaIndex=3, lastDotIndex=-1 -> BR format -> "123.45"
-        // E.g., "123.45" -> lastCommaIndex=-1, lastDotIndex=3 -> US format -> "123.45"
-        // E.g., "12345" -> no change -> "12345"
-
+        
         const parsedValue = parseFloat(sanitizedValue);
         if (isNaN(parsedValue)) {
             console.warn(`Falha ao parsear valorTotalGeral para guia ${numeroGuiaPrestador}. Valor bruto: "${rawValorTotalGeral}", Sanitizado: "${sanitizedValue}". Usando 0.`);
@@ -449,22 +459,30 @@ export const extractGuides = (xmlContent: string): Guide[] => {
         let sanitizedValue = rawValorTotalGeral.trim();
         sanitizedValue = sanitizedValue.replace(/[^0-9.,]/g, '');
 
-        const commaCount = (sanitizedValue.match(/,/g) || []).length;
-        const dotCount = (sanitizedValue.match(/\./g) || []).length;
+        const lastCommaIndex = sanitizedValue.lastIndexOf(',');
+        const lastDotIndex = sanitizedValue.lastIndexOf('.');
 
-        if (commaCount === 1 && dotCount === 0) {
-            sanitizedValue = sanitizedValue.replace(',', '.');
-        } else if (dotCount === 1 && commaCount === 0) {
-            // Keep as is
-        } else if (commaCount > 0 && dotCount > 0) {
-            const lastCommaIndex = sanitizedValue.lastIndexOf(',');
-            const lastDotIndex = sanitizedValue.lastIndexOf('.');
-
-            if (lastCommaIndex > lastDotIndex) {
-                sanitizedValue = sanitizedValue.replace(/\./g, '');
-                sanitizedValue = sanitizedValue.replace(/,/g, '.');
-            } else {
-                sanitizedValue = sanitizedValue.replace(/,/g, '');
+        if (lastCommaIndex === -1 && lastDotIndex === -1) {
+            // No separators, it's an integer.
+        } else if (lastCommaIndex > lastDotIndex) {
+            // Brazilian format
+            sanitizedValue = sanitizedValue.replace(/\./g, '');
+            sanitizedValue = sanitizedValue.replace(/,/g, '.');
+        } else if (lastDotIndex > lastCommaIndex) {
+            // US format
+            sanitizedValue = sanitizedValue.replace(/,/g, '');
+        } else { 
+            // Ambiguous case
+            if (lastDotIndex !== -1) { 
+                if (sanitizedValue.match(/\.\d{3}$/)) { 
+                    sanitizedValue = sanitizedValue.replace(/\./g, '');
+                }
+            } else if (lastCommaIndex !== -1) { 
+                if (sanitizedValue.match(/,\d{3}$/)) { 
+                    sanitizedValue = sanitizedValue.replace(/,/g, '');
+                } else { 
+                    sanitizedValue = sanitizedValue.replace(/,/g, '.');
+                }
             }
         }
         const parsedValue = parseFloat(sanitizedValue);
