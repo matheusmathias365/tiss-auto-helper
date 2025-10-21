@@ -344,9 +344,14 @@ export const extractGuides = (xmlContent: string): Guide[] => {
                 // O ponto decimal já está correto
             }
         }
-        // Se não houver separadores, ou apenas um ponto/vírgula, parseFloat lida corretamente.
-
-        valorTotalGeral = parseFloat(sanitizedValue) || 0;
+        
+        const parsedValue = parseFloat(sanitizedValue);
+        if (isNaN(parsedValue)) {
+            console.warn(`Falha ao parsear valorTotalGeral para guia ${numeroGuiaPrestador}. Valor bruto: "${rawValorTotalGeral}", Sanitizado: "${sanitizedValue}". Usando 0.`);
+            valorTotalGeral = 0;
+        } else {
+            valorTotalGeral = parsedValue;
+        }
       }
 
       guides.push({
@@ -403,7 +408,13 @@ export const extractGuides = (xmlContent: string): Guide[] => {
                 sanitizedValue = sanitizedValue.replace(/,/g, '');
             }
         }
-        valorTotalGeral = parseFloat(sanitizedValue) || 0;
+        const parsedValue = parseFloat(sanitizedValue);
+        if (isNaN(parsedValue)) {
+            console.warn(`Falha ao parsear valorTotalGeral (regex fallback) para guia ${numeroGuiaPrestador}. Valor bruto: "${rawValorTotalGeral}", Sanitizado: "${sanitizedValue}". Usando 0.`);
+            valorTotalGeral = 0;
+        } else {
+            valorTotalGeral = parsedValue;
+        }
       }
 
       regexGuides.push({
