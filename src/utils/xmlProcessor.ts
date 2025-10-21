@@ -72,30 +72,36 @@ export const rebuildXml = (xmlContent: string): string => {
         }
       } else {
         const keys = Object.keys(parsedObject);
-        for (const key of keys) {
-          if (typeof parsedObject[key] === 'object' && parsedObject[key] !== null && parsedObject[key]['ans:mensagemTISS']) {
-            rootTissMessageObject = parsedObject[key]['ans:mensagemTISS'];
-            break;
-          }
+        // Check if parsedObject itself is the 'ans:mensagemTISS' content (e.g., if input XML was just the content)
+        // Or if it's wrapped in another single root element
+        if (keys.length === 1 && keys[0] === 'ans:mensagemTISS') {
+            rootTissMessageObject = parsedObject['ans:mensagemTISS'];
+        } else {
+            for (const key of keys) {
+                if (typeof parsedObject[key] === 'object' && parsedObject[key] !== null && parsedObject[key]['ans:mensagemTISS']) {
+                    rootTissMessageObject = parsedObject[key]['ans:mensagemTISS'];
+                    break;
+                }
+            }
         }
       }
     }
 
     if (!rootTissMessageObject || typeof rootTissMessageObject !== 'object') {
-      console.error("Could not find 'ans:mensagemTISS' as the root element object after parsing. Building raw object.");
-      // Fallback: try to build the original parsed object if root not found
+      console.error("Could not find 'ans:mensagemTISS' as the root element object after parsing. Building raw object without TISS attributes.");
+      // If we can't find the TISS message, we can't add TISS-specific attributes.
+      // The declaration should still be added by the builder options.
       return builder.build(parsedObject);
     }
 
-    // Ensure namespace attributes are present on the root 'ans:mensagemTISS' object
+    // Apply namespace attributes directly to the 'ans:mensagemTISS' object within parsedObject
+    // This ensures they are part of the root element's attributes.
     rootTissMessageObject['@_xmlns:xsi'] = "http://www.w3.org/2001/XMLSchema-instance";
     rootTissMessageObject['@_xmlns:ans'] = "http://www.ans.gov.br/padroes/tiss/schemas";
     rootTissMessageObject['@_xsi:schemaLocation'] = "http://www.ans.gov.br/padroes/tiss/schemas tissV4_01_00.xsd";
     
-    // The builder expects an object where the key is the root tag name
-    const objectToBuild = { "ans:mensagemTISS": rootTissMessageObject };
-
-    return builder.build(objectToBuild);
+    // Now, build the entire parsedObject. The builder should correctly place the declaration.
+    return builder.build(parsedObject);
   } catch (error) {
     console.error("Error rebuilding XML:", error);
     return xmlContent;
@@ -120,11 +126,17 @@ export const formatXmlContent = (xmlContent: string): string => {
         }
       } else {
         const keys = Object.keys(parsedObject);
-        for (const key of keys) {
-          if (typeof parsedObject[key] === 'object' && parsedObject[key] !== null && parsedObject[key]['ans:mensagemTISS']) {
-            rootTissMessageObject = parsedObject[key]['ans:mensagemTISS'];
-            break;
-          }
+        // Check if parsedObject itself is the 'ans:mensagemTISS' content (e.g., if input XML was just the content)
+        // Or if it's wrapped in another single root element
+        if (keys.length === 1 && keys[0] === 'ans:mensagemTISS') {
+            rootTissMessageObject = parsedObject['ans:mensagemTISS'];
+        } else {
+            for (const key of keys) {
+                if (typeof parsedObject[key] === 'object' && parsedObject[key] !== null && parsedObject[key]['ans:mensagemTISS']) {
+                    rootTissMessageObject = parsedObject[key]['ans:mensagemTISS'];
+                    break;
+                }
+            }
         }
       }
     }
@@ -139,9 +151,7 @@ export const formatXmlContent = (xmlContent: string): string => {
     rootTissMessageObject['@_xmlns:ans'] = "http://www.ans.gov.br/padroes/tiss/schemas";
     rootTissMessageObject['@_xsi:schemaLocation'] = "http://www.ans.gov.br/padroes/tiss/schemas tissV4_01_00.xsd";
     
-    const objectToBuild = { "ans:mensagemTISS": rootTissMessageObject };
-
-    return formattedBuilder.build(objectToBuild);
+    return formattedBuilder.build(parsedObject);
   } catch (error) {
     console.error("Error formatting XML content:", error);
     return xmlContent;
