@@ -44,14 +44,17 @@ const defaultBuilderOptions = {
   format: false, // Default to no formatting for TISS validation
   indentBy: "  ",
   processEntities: false,
-  declaration: {
-    include: true,
-    attributes: {
-      version: "1.0",
-      encoding: "ISO-8859-1"
-    }
-  },
+  // Removendo a opção 'declaration' daqui para adicioná-la manualmente
+  // declaration: {
+  //   include: true,
+  //   attributes: {
+  //     version: "1.0",
+  //     encoding: "ISO-8859-1"
+  //   }
+  // },
 };
+
+const XML_DECLARATION = '<?xml version="1.0" encoding="ISO-8859-1"?>';
 
 // Helper function to reliably get the 'ans:mensagemTISS' content object
 const getTissRootContent = (parsed: any): any => {
@@ -83,16 +86,16 @@ const getTissRootContent = (parsed: any): any => {
 export const rebuildXml = (xmlContent: string): string => {
   try {
     const parser = new XMLParser(commonParserOptions);
-    const builder = new XMLBuilder(defaultBuilderOptions);
+    const builder = new XMLBuilder(defaultBuilderOptions); // Usar defaultBuilderOptions sem 'declaration'
     let parsedObject = parser.parse(xmlContent);
 
     let tissRootContent = getTissRootContent(parsedObject);
 
     if (!tissRootContent) {
       console.error("Could not find 'ans:mensagemTISS' content after parsing for rebuilding. Building with original parsed structure.");
-      // If we can't find the TISS message content, we can't add TISS-specific attributes.
-      // The declaration should still be added by the builder if parsedObject is a single root.
-      return builder.build(parsedObject);
+      // Fallback: if we can't find the TISS message, try to build the original parsed object.
+      // Prepend declaration manually.
+      return XML_DECLARATION + '\n' + builder.build(parsedObject);
     }
 
     // Apply namespace attributes directly to the TISS root content
@@ -103,7 +106,7 @@ export const rebuildXml = (xmlContent: string): string => {
     // Always build with "ans:mensagemTISS" as the explicit root key for the builder
     const objectToBuild = { "ans:mensagemTISS": tissRootContent };
 
-    return builder.build(objectToBuild);
+    return XML_DECLARATION + '\n' + builder.build(objectToBuild); // Adicionar declaração manualmente
   } catch (error) {
     console.error("Error rebuilding XML:", error);
     return xmlContent;
@@ -113,14 +116,14 @@ export const rebuildXml = (xmlContent: string): string => {
 export const formatXmlContent = (xmlContent: string): string => {
   try {
     const parser = new XMLParser(commonParserOptions);
-    const formattedBuilder = new XMLBuilder({ ...defaultBuilderOptions, format: true, indentBy: "  " });
+    const formattedBuilder = new XMLBuilder({ ...defaultBuilderOptions, format: true, indentBy: "  " }); // Usar defaultBuilderOptions sem 'declaration'
     let parsedObject = parser.parse(xmlContent);
 
     let tissRootContent = getTissRootContent(parsedObject);
 
     if (!tissRootContent) {
       console.error("Could not find 'ans:mensagemTISS' content after parsing for formatting. Building with original parsed structure.");
-      return formattedBuilder.build(parsedObject);
+      return XML_DECLARATION + '\n' + formattedBuilder.build(parsedObject); // Adicionar declaração manualmente
     }
 
     // Ensure namespace attributes are present on the TISS root content
@@ -131,7 +134,7 @@ export const formatXmlContent = (xmlContent: string): string => {
     // Always build with "ans:mensagemTISS" as the explicit root key for the builder
     const objectToBuild = { "ans:mensagemTISS": tissRootContent };
 
-    return formattedBuilder.build(objectToBuild);
+    return XML_DECLARATION + '\n' + formattedBuilder.build(objectToBuild); // Adicionar declaração manualmente
   } catch (error) {
     console.error("Error formatting XML content:", error);
     return xmlContent;
